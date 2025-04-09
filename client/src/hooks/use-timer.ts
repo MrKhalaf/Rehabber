@@ -1,152 +1,223 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { ExerciseTimer } from '@/lib/timer';
-import { Exercise } from '@shared/schema';
-import { TimerState } from '@/types';
 
-interface UseTimerProps {
-  exercise: Exercise;
+export type TimerState = 'inactive' | 'running' | 'paused' | 'completed';
+
+export interface TimerConfig {
+  duration: number;
+  restDuration?: number;
+  sets?: number;
+  sides?: boolean;
   onComplete?: () => void;
+  onSetComplete?: (set: number) => void;
+  onSideChange?: () => void;
 }
 
-export function useTimer({ exercise, onComplete }: UseTimerProps) {
-  const [state, setState] = useState<TimerState>({
-    isActive: false,
-    isPaused: false,
-    secondsRemaining: 0,
-    totalDuration: exercise.holdDuration || 0,
-    currentSet: 1,
-    totalSets: exercise.sets,
-    currentSide: exercise.holdDuration ? 'left' : null,
-    exerciseType: exercise.holdDuration ? 'hold' : 'rep'
-  });
+export interface TimerReturn {
+  timeRemaining: number;
+  percentRemaining: number;
+  currentSet: number;
+  totalSets: number;
+  currentSide: 'left' | 'right' | null;
+  isResting: boolean;
+  state: TimerState;
+  start: () => void;
+  pause: () => void;
+  resume: () => void;
+  reset: () => void;
+  skip: () => void;
+  nextSet: () => void;
+}
+
+export function useTimer({
+  duration,
+  restDuration = 30,
+  sets = 1,
+  sides = false,
+  onComplete,
+  onSetComplete,
+  onSideChange
+}: TimerConfig): TimerReturn {
+  const [timeRemaining, setTimeRemaining] = useState(duration);
+  const [currentSet, setCurrentSet] = useState(1);
+  const [currentSide, setCurrentSide] = useState<'left' | 'right' | null>(sides ? 'left' : null);
+  const [isResting, setIsResting] = useState(false);
+  const [state, setState] = useState<TimerState>('inactive');
   
-  const timerRef = useRef<ExerciseTimer | null>(null);
+  const timerRef = useRef<number | null>(null);
+  const startTimeRef = useRef<number>(0);
+  const pausedTimeRef = useRef<number>(0);
   
-  // Initialize the timer
-  useEffect(() => {
-    timerRef.current = new ExerciseTimer(
-      (timeRemaining) => {
-        setState(prev => ({
-          ...prev,
-          secondsRemaining: timeRemaining
-        }));
-      },
-      () => {
-        // Timer complete - handle set completion
-        handleSetComplete();
-      }
-    );
-    
-    return () => {
-      if (timerRef.current) {
-        timerRef.current.stop();
-      }
-    };
+  // Calculate percentage for progress indicator
+  const percentRemaining = (timeRemaining / (isResting ? restDuration : duration)) * 100;
+  
+  const clearTimer = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   }, []);
   
-  // Handle set completion logic
-  const handleSetComplete = useCallback(() => {
-    setState(prev => {
-      // If we need to switch sides
-      if (prev.currentSide === 'left') {
-        return {
-          ...prev,
-          currentSide: 'right',
-          isActive: false
-        };
-      }
+  const startTimer = useCallback(() => {
+    clearTimer();
+    startTimeRef.current = Date.now();
+    setState('running');
+    
+    timerRef.current = window.setInterval(() => {
+      const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      const newTime = (isResting ? restDuration : duration) - elapsedSeconds;
       
-      // If we've completed all sets
-      if (prev.currentSet >= prev.totalSets) {
-        if (onComplete) {
-          onComplete();
+      if (newTime <= 0) {
+        clearTimer();
+        
+        if (isResting) {
+          // Rest period complete, move to next exercise or side
+          setIsResting(false);
+          
+          if (sides && currentSide === 'left') {
+            // Switch to right side
+            setCurrentSide('right');
+            setTimeRemaining(duration);
+            if (onSideChange) onSideChange();
+            startTimer();
+          } else {
+            // Set is complete
+            if (currentSet < sets) {
+              // Move to next set
+              setCurrentSet(prev => prev + 1);
+              if (sides) setCurrentSide('left');
+              setTimeRemaining(duration);
+              if (onSetComplete) onSetComplete(currentSet);
+              startTimer();
+            } else {
+              // All sets complete
+              setState('completed');
+              if (onComplete) onComplete();
+            }
+          }
+        } else {
+          // Exercise period complete, start rest
+          setTimeRemaining(restDuration);
+          setIsResting(true);
+          startTimer();
         }
-        return {
-          ...prev,
-          isActive: false,
-          currentSet: prev.totalSets
-        };
+      } else {
+        setTimeRemaining(newTime);
       }
-      
-      // Move to next set
-      return {
-        ...prev,
-        currentSet: prev.currentSet + 1,
-        currentSide: prev.currentSide ? 'left' : null,
-        isActive: false
-      };
-    });
-  }, [onComplete]);
+    }, 100); // Update more frequently for smoother countdown
+  }, [clearTimer, currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides]);
+  
+  // Stop timer when component unmounts
+  useEffect(() => {
+    return () => clearTimer();
+  }, [clearTimer]);
   
   // Start the timer
-  const startTimer = useCallback(() => {
-    if (!timerRef.current) return;
-    
-    const duration = exercise.holdDuration || 10; // Default 10 seconds if no hold duration
-    
-    timerRef.current.start(duration);
-    setState(prev => ({
-      ...prev,
-      isActive: true,
-      isPaused: false,
-      secondsRemaining: duration,
-      totalDuration: duration
-    }));
-  }, [exercise.holdDuration]);
+  const start = useCallback(() => {
+    setTimeRemaining(duration);
+    setCurrentSet(1);
+    setCurrentSide(sides ? 'left' : null);
+    setIsResting(false);
+    startTimer();
+  }, [duration, sides, startTimer]);
   
   // Pause the timer
-  const pauseTimer = useCallback(() => {
-    if (!timerRef.current || !state.isActive) return;
-    
-    timerRef.current.pause();
-    setState(prev => ({
-      ...prev,
-      isPaused: true
-    }));
-  }, [state.isActive]);
+  const pause = useCallback(() => {
+    if (state === 'running') {
+      clearTimer();
+      pausedTimeRef.current = timeRemaining;
+      setState('paused');
+    }
+  }, [clearTimer, state, timeRemaining]);
   
   // Resume the timer
-  const resumeTimer = useCallback(() => {
-    if (!timerRef.current || !state.isPaused) return;
-    
-    timerRef.current.resume();
-    setState(prev => ({
-      ...prev,
-      isPaused: false
-    }));
-  }, [state.isPaused]);
+  const resume = useCallback(() => {
+    if (state === 'paused') {
+      startTimeRef.current = Date.now() - ((isResting ? restDuration : duration) - pausedTimeRef.current) * 1000;
+      startTimer();
+    }
+  }, [duration, isResting, restDuration, startTimer, state]);
   
-  // Skip to next set or side
-  const skipToNext = useCallback(() => {
-    if (timerRef.current) {
-      timerRef.current.stop();
-    }
-    handleSetComplete();
-  }, [handleSetComplete]);
+  // Reset the timer
+  const reset = useCallback(() => {
+    clearTimer();
+    setTimeRemaining(duration);
+    setCurrentSet(1);
+    setCurrentSide(sides ? 'left' : null);
+    setIsResting(false);
+    setState('inactive');
+  }, [clearTimer, duration, sides]);
   
-  // Mark current exercise as complete
-  const completeExercise = useCallback(() => {
-    if (timerRef.current) {
-      timerRef.current.stop();
-    }
+  // Skip to next part
+  const skip = useCallback(() => {
+    if (state !== 'running') return;
     
-    if (onComplete) {
-      onComplete();
-    }
+    clearTimer();
     
-    setState(prev => ({
-      ...prev,
-      isActive: false,
-      currentSet: prev.totalSets
-    }));
-  }, [onComplete]);
+    if (isResting) {
+      // Skip rest period
+      setIsResting(false);
+      
+      if (sides && currentSide === 'left') {
+        // Switch to right side
+        setCurrentSide('right');
+        setTimeRemaining(duration);
+        if (onSideChange) onSideChange();
+        startTimer();
+      } else {
+        // Move to next set
+        if (currentSet < sets) {
+          setCurrentSet(prev => prev + 1);
+          if (sides) setCurrentSide('left');
+          setTimeRemaining(duration);
+          if (onSetComplete) onSetComplete(currentSet);
+          startTimer();
+        } else {
+          // All sets complete
+          setState('completed');
+          if (onComplete) onComplete();
+        }
+      }
+    } else {
+      // Skip exercise period, start rest
+      setTimeRemaining(restDuration);
+      setIsResting(true);
+      startTimer();
+    }
+  }, [clearTimer, currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides, startTimer, state]);
+  
+  // Skip to next set directly
+  const nextSet = useCallback(() => {
+    if (state !== 'running' && state !== 'paused') return;
+    
+    clearTimer();
+    
+    if (currentSet < sets) {
+      setCurrentSet(prev => prev + 1);
+      if (sides) setCurrentSide('left');
+      setTimeRemaining(duration);
+      setIsResting(false);
+      if (onSetComplete) onSetComplete(currentSet);
+      startTimer();
+    } else {
+      // All sets complete
+      setState('completed');
+      if (onComplete) onComplete();
+    }
+  }, [clearTimer, currentSet, duration, onComplete, onSetComplete, sets, sides, startTimer, state]);
   
   return {
+    timeRemaining,
+    percentRemaining,
+    currentSet,
+    totalSets: sets,
+    currentSide,
+    isResting,
     state,
-    startTimer,
-    pauseTimer,
-    resumeTimer,
-    skipToNext,
-    completeExercise
+    start,
+    pause,
+    resume,
+    reset,
+    skip,
+    nextSet
   };
 }

@@ -1,141 +1,44 @@
 import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
-import { z } from "zod";
 import { 
-  insertUserSchema,
-  insertCategorySchema,
-  insertExerciseSchema,
-  insertExerciseLogSchema,
-  insertRecommendedVideoSchema,
-  insertPtNoteSchema
+  exerciseInsertSchema, 
+  exerciseProgressInsertSchema, 
+  programInsertSchema,
+  ptNotesParserSchema
 } from "@shared/schema";
+import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // API routes
-  const apiRouter = app.router("/api");
+  const httpServer = createServer(app);
   
-  // Error handling middleware
-  function handleApiError(res: Response, error: any) {
-    console.error("API Error:", error);
-    if (error instanceof z.ZodError) {
-      return res.status(400).json({ 
-        message: "Validation error", 
-        errors: error.errors 
-      });
-    }
-    res.status(500).json({ message: error.message || "An unexpected error occurred" });
-  }
-
-  // User routes
-  apiRouter.post("/users", async (req, res) => {
+  // Get all exercises
+  app.get("/api/exercises", async (req: Request, res: Response) => {
     try {
-      const userData = insertUserSchema.parse(req.body);
-      
-      // Check if user already exists
-      const existingUser = await storage.getUserByUsername(userData.username);
-      if (existingUser) {
-        return res.status(409).json({ message: "Username already exists" });
-      }
-
-      const user = await storage.createUser(userData);
-      res.status(201).json(user);
-    } catch (error) {
-      handleApiError(res, error);
-    }
-  });
-
-  // Category routes
-  apiRouter.get("/categories", async (req, res) => {
-    try {
-      const userId = Number(req.query.userId);
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Valid userId is required" });
-      }
-      
-      const categories = await storage.getCategories(userId);
-      res.json(categories);
-    } catch (error) {
-      handleApiError(res, error);
-    }
-  });
-
-  apiRouter.post("/categories", async (req, res) => {
-    try {
-      const categoryData = insertCategorySchema.parse(req.body);
-      const category = await storage.createCategory(categoryData);
-      res.status(201).json(category);
-    } catch (error) {
-      handleApiError(res, error);
-    }
-  });
-
-  apiRouter.put("/categories/:id", async (req, res) => {
-    try {
-      const id = Number(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Valid id is required" });
-      }
-      
-      const categoryData = insertCategorySchema.partial().parse(req.body);
-      const category = await storage.updateCategory(id, categoryData);
-      
-      if (!category) {
-        return res.status(404).json({ message: "Category not found" });
-      }
-      
-      res.json(category);
-    } catch (error) {
-      handleApiError(res, error);
-    }
-  });
-
-  apiRouter.delete("/categories/:id", async (req, res) => {
-    try {
-      const id = Number(req.params.id);
-      if (isNaN(id)) {
-        return res.status(400).json({ message: "Valid id is required" });
-      }
-      
-      const deleted = await storage.deleteCategory(id);
-      if (!deleted) {
-        return res.status(404).json({ message: "Category not found" });
-      }
-      
-      res.status(204).end();
-    } catch (error) {
-      handleApiError(res, error);
-    }
-  });
-
-  // Exercise routes
-  apiRouter.get("/exercises", async (req, res) => {
-    try {
-      const userId = Number(req.query.userId);
-      const categoryId = req.query.categoryId ? Number(req.query.categoryId) : undefined;
-      
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Valid userId is required" });
-      }
-      
-      let exercises;
-      if (categoryId && !isNaN(categoryId)) {
-        exercises = await storage.getExercisesByCategory(categoryId);
-      } else {
-        exercises = await storage.getExercises(userId);
-      }
-      
+      const exercises = await storage.getExercises();
       res.json(exercises);
     } catch (error) {
-      handleApiError(res, error);
+      res.status(500).json({ message: "Failed to fetch exercises" });
     }
   });
-
-  apiRouter.get("/exercises/:id", async (req, res) => {
+  
+  // Get exercises by category
+  app.get("/api/exercises/category/:category", async (req: Request, res: Response) => {
     try {
-      const id = Number(req.params.id);
+      const { category } = req.params;
+      const exercises = await storage.getExercisesByCategory(category);
+      res.json(exercises);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch exercises by category" });
+    }
+  });
+  
+  // Get a single exercise
+  app.get("/api/exercises/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        return res.status(400).json({ message: "Valid id is required" });
+        return res.status(400).json({ message: "Invalid exercise ID" });
       }
       
       const exercise = await storage.getExercise(id);
@@ -145,171 +48,238 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(exercise);
     } catch (error) {
-      handleApiError(res, error);
+      res.status(500).json({ message: "Failed to fetch exercise" });
     }
   });
-
-  apiRouter.post("/exercises", async (req, res) => {
+  
+  // Create a new exercise
+  app.post("/api/exercises", async (req: Request, res: Response) => {
     try {
-      const exerciseData = insertExerciseSchema.parse(req.body);
-      const exercise = await storage.createExercise(exerciseData);
+      const validatedData = exerciseInsertSchema.parse(req.body);
+      const exercise = await storage.createExercise(validatedData);
       res.status(201).json(exercise);
     } catch (error) {
-      handleApiError(res, error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid exercise data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create exercise" });
     }
   });
-
-  apiRouter.put("/exercises/:id", async (req, res) => {
+  
+  // Update an exercise
+  app.patch("/api/exercises/:id", async (req: Request, res: Response) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        return res.status(400).json({ message: "Valid id is required" });
+        return res.status(400).json({ message: "Invalid exercise ID" });
       }
       
-      const exerciseData = insertExerciseSchema.partial().parse(req.body);
-      const exercise = await storage.updateExercise(id, exerciseData);
+      // Partial validation
+      const validatedData = exerciseInsertSchema.partial().parse(req.body);
       
-      if (!exercise) {
+      const updatedExercise = await storage.updateExercise(id, validatedData);
+      if (!updatedExercise) {
         return res.status(404).json({ message: "Exercise not found" });
       }
       
-      res.json(exercise);
+      res.json(updatedExercise);
     } catch (error) {
-      handleApiError(res, error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid exercise data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update exercise" });
     }
   });
-
-  apiRouter.delete("/exercises/:id", async (req, res) => {
+  
+  // Delete an exercise
+  app.delete("/api/exercises/:id", async (req: Request, res: Response) => {
     try {
-      const id = Number(req.params.id);
+      const id = parseInt(req.params.id);
       if (isNaN(id)) {
-        return res.status(400).json({ message: "Valid id is required" });
+        return res.status(400).json({ message: "Invalid exercise ID" });
       }
       
-      const deleted = await storage.deleteExercise(id);
-      if (!deleted) {
+      const success = await storage.deleteExercise(id);
+      if (!success) {
         return res.status(404).json({ message: "Exercise not found" });
       }
       
       res.status(204).end();
     } catch (error) {
-      handleApiError(res, error);
+      res.status(500).json({ message: "Failed to delete exercise" });
     }
   });
-
-  // Exercise Log routes
-  apiRouter.get("/exercise-logs", async (req, res) => {
+  
+  // Record exercise progress
+  app.post("/api/progress", async (req: Request, res: Response) => {
     try {
-      const userId = Number(req.query.userId);
-      const exerciseId = req.query.exerciseId ? Number(req.query.exerciseId) : undefined;
-      
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Valid userId is required" });
+      const validatedData = exerciseProgressInsertSchema.parse(req.body);
+      const progress = await storage.createExerciseProgress(validatedData);
+      res.status(201).json(progress);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid progress data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to record progress" });
+    }
+  });
+  
+  // Get progress for a specific exercise
+  app.get("/api/progress/:exerciseId", async (req: Request, res: Response) => {
+    try {
+      const exerciseId = parseInt(req.params.exerciseId);
+      if (isNaN(exerciseId)) {
+        return res.status(400).json({ message: "Invalid exercise ID" });
       }
       
-      let logs;
-      if (exerciseId && !isNaN(exerciseId)) {
-        logs = await storage.getExerciseLogsByExercise(exerciseId);
-      } else {
-        logs = await storage.getExerciseLogs(userId);
+      const progress = await storage.getExerciseProgress(exerciseId);
+      res.json(progress);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch progress" });
+    }
+  });
+  
+  // Get all programs
+  app.get("/api/programs", async (req: Request, res: Response) => {
+    try {
+      const programs = await storage.getPrograms();
+      res.json(programs);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch programs" });
+    }
+  });
+  
+  // Get a single program
+  app.get("/api/programs/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid program ID" });
       }
       
-      res.json(logs);
-    } catch (error) {
-      handleApiError(res, error);
-    }
-  });
-
-  apiRouter.post("/exercise-logs", async (req, res) => {
-    try {
-      const logData = insertExerciseLogSchema.parse(req.body);
-      const log = await storage.createExerciseLog(logData);
-      res.status(201).json(log);
-    } catch (error) {
-      handleApiError(res, error);
-    }
-  });
-
-  // Recommended Videos routes
-  apiRouter.get("/recommended-videos", async (req, res) => {
-    try {
-      const userId = Number(req.query.userId) || null;
-      const videos = await storage.getRecommendedVideos(userId);
-      res.json(videos);
-    } catch (error) {
-      handleApiError(res, error);
-    }
-  });
-
-  apiRouter.post("/recommended-videos", async (req, res) => {
-    try {
-      const videoData = insertRecommendedVideoSchema.parse(req.body);
-      const video = await storage.createRecommendedVideo(videoData);
-      res.status(201).json(video);
-    } catch (error) {
-      handleApiError(res, error);
-    }
-  });
-
-  // PT Notes routes
-  apiRouter.get("/pt-notes", async (req, res) => {
-    try {
-      const userId = Number(req.query.userId);
-      if (isNaN(userId)) {
-        return res.status(400).json({ message: "Valid userId is required" });
+      const program = await storage.getProgram(id);
+      if (!program) {
+        return res.status(404).json({ message: "Program not found" });
       }
       
-      const notes = await storage.getPtNotes(userId);
-      res.json(notes);
+      res.json(program);
     } catch (error) {
-      handleApiError(res, error);
+      res.status(500).json({ message: "Failed to fetch program" });
     }
   });
-
-  apiRouter.post("/pt-notes", async (req, res) => {
+  
+  // Create a new program
+  app.post("/api/programs", async (req: Request, res: Response) => {
     try {
-      const noteData = insertPtNoteSchema.parse(req.body);
-      const note = await storage.createPtNote(noteData);
-      res.status(201).json(note);
+      const validatedData = programInsertSchema.parse(req.body);
+      const program = await storage.createProgram(validatedData);
+      res.status(201).json(program);
     } catch (error) {
-      handleApiError(res, error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid program data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to create program" });
     }
   });
-
-  // Parse PT notes endpoint
-  apiRouter.post("/parse-pt-notes", async (req, res) => {
+  
+  // Update a program
+  app.patch("/api/programs/:id", async (req: Request, res: Response) => {
     try {
-      const { content } = req.body;
-      if (!content || typeof content !== 'string') {
-        return res.status(400).json({ message: "Content is required and must be a string" });
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid program ID" });
       }
       
-      // Parse PT notes to extract exercises
-      // This is a simplified parser that extracts basic exercise information
-      const exerciseRegex = /([a-zA-Z\s-]+)(?:\s*[-:]\s*)?(?:(\d+)\s*(?:sets|x)\s*)?(?:(\d+)\s*(?:reps|repetitions)\s*)?(?:(\d+)\s*(?:s|sec|seconds)\s*(?:hold|duration))?/gi;
+      // Partial validation
+      const validatedData = programInsertSchema.partial().parse(req.body);
       
-      const parsedExercises = [];
-      let match;
+      const updatedProgram = await storage.updateProgram(id, validatedData);
+      if (!updatedProgram) {
+        return res.status(404).json({ message: "Program not found" });
+      }
       
-      while ((match = exerciseRegex.exec(content)) !== null) {
-        const [_, name, sets, reps, holdDuration] = match;
-        
-        if (name && name.trim()) {
-          parsedExercises.push({
+      res.json(updatedProgram);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid program data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to update program" });
+    }
+  });
+  
+  // Delete a program
+  app.delete("/api/programs/:id", async (req: Request, res: Response) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid program ID" });
+      }
+      
+      const success = await storage.deleteProgram(id);
+      if (!success) {
+        return res.status(404).json({ message: "Program not found" });
+      }
+      
+      res.status(204).end();
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete program" });
+    }
+  });
+  
+  // Parse PT notes to create exercises
+  app.post("/api/parse-pt-notes", async (req: Request, res: Response) => {
+    try {
+      const { plainText } = ptNotesParserSchema.parse(req.body);
+      
+      // This is a very simple parser that looks for patterns in the text
+      // A more sophisticated parser would be needed for production
+      const exercises = [];
+      
+      // Split by newlines and look for exercise patterns
+      const lines = plainText.split('\n');
+      for (const line of lines) {
+        // Try to match patterns like "Exercise name: 3x10 reps"
+        const exerciseMatch = line.match(/^(.+?):\s*(\d+)\s*x\s*(\d+)\s*(reps|sec|seconds)/i);
+        if (exerciseMatch) {
+          const [_, name, sets, duration, type] = exerciseMatch;
+          
+          // Determine if it's a rep or hold exercise
+          const isHold = type.toLowerCase().includes('sec');
+          
+          // Create an exercise
+          const exercise = {
             name: name.trim(),
-            sets: sets ? parseInt(sets) : null,
-            reps: reps ? parseInt(reps) : null,
-            holdDuration: holdDuration ? parseInt(holdDuration) : null
-          });
+            category: "Other", // Default category
+            type: isHold ? "hold" : "rep",
+            sets: parseInt(sets),
+            instructions: ["Perform as instructed by your physical therapist"]
+          };
+          
+          // Add appropriate duration field
+          if (isHold) {
+            exercise.holdDuration = parseInt(duration);
+          } else {
+            exercise.reps = parseInt(duration);
+          }
+          
+          // Add to exercises array
+          exercises.push(exercise);
         }
       }
       
-      res.json({ parsedExercises });
+      // Return the parsed exercises
+      res.json({ 
+        exercises,
+        message: `Parsed ${exercises.length} exercises from your PT notes`
+      });
+      
     } catch (error) {
-      handleApiError(res, error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: "Invalid PT notes data", errors: error.errors });
+      }
+      res.status(500).json({ message: "Failed to parse PT notes" });
     }
   });
 
-  const httpServer = createServer(app);
   return httpServer;
 }

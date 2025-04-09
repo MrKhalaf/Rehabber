@@ -1,85 +1,63 @@
-import {
-  users, type User, type InsertUser,
-  categories, type Category, type InsertCategory,
+import { 
   exercises, type Exercise, type InsertExercise,
-  exerciseLogs, type ExerciseLog, type InsertExerciseLog,
-  recommendedVideos, type RecommendedVideo, type InsertRecommendedVideo,
-  ptNotes, type PtNote, type InsertPtNote,
+  exerciseProgress, type ExerciseProgress, type InsertExerciseProgress,
+  programs, type Program, type InsertProgram,
+  users, type User, type InsertUser
 } from "@shared/schema";
 
-// In-memory storage interface
 export interface IStorage {
   // User operations
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
-
-  // Category operations
-  getCategories(userId: number): Promise<Category[]>;
-  getCategory(id: number): Promise<Category | undefined>;
-  createCategory(category: InsertCategory): Promise<Category>;
-  updateCategory(id: number, category: Partial<InsertCategory>): Promise<Category | undefined>;
-  deleteCategory(id: number): Promise<boolean>;
-
+  
   // Exercise operations
-  getExercises(userId: number): Promise<Exercise[]>;
-  getExercisesByCategory(categoryId: number): Promise<Exercise[]>;
+  getExercises(): Promise<Exercise[]>;
   getExercise(id: number): Promise<Exercise | undefined>;
+  getExercisesByCategory(category: string): Promise<Exercise[]>;
   createExercise(exercise: InsertExercise): Promise<Exercise>;
   updateExercise(id: number, exercise: Partial<InsertExercise>): Promise<Exercise | undefined>;
   deleteExercise(id: number): Promise<boolean>;
-
-  // Exercise Log operations
-  getExerciseLogs(userId: number): Promise<ExerciseLog[]>;
-  getExerciseLogsByExercise(exerciseId: number): Promise<ExerciseLog[]>;
-  createExerciseLog(log: InsertExerciseLog): Promise<ExerciseLog>;
-
-  // Recommended Videos operations
-  getRecommendedVideos(userId: number): Promise<RecommendedVideo[]>;
-  getRecommendedVideo(id: number): Promise<RecommendedVideo | undefined>;
-  createRecommendedVideo(video: InsertRecommendedVideo): Promise<RecommendedVideo>;
-
-  // PT Notes operations
-  getPtNotes(userId: number): Promise<PtNote[]>;
-  getPtNote(id: number): Promise<PtNote | undefined>;
-  createPtNote(note: InsertPtNote): Promise<PtNote>;
+  
+  // Exercise Progress operations
+  getExerciseProgress(exerciseId: number): Promise<ExerciseProgress[]>;
+  createExerciseProgress(progress: InsertExerciseProgress): Promise<ExerciseProgress>;
+  
+  // Program operations
+  getPrograms(): Promise<Program[]>;
+  getProgram(id: number): Promise<Program | undefined>;
+  createProgram(program: InsertProgram): Promise<Program>;
+  updateProgram(id: number, program: Partial<InsertProgram>): Promise<Program | undefined>;
+  deleteProgram(id: number): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<number, User>;
-  private categories: Map<number, Category>;
   private exercises: Map<number, Exercise>;
-  private exerciseLogs: Map<number, ExerciseLog>;
-  private recommendedVideos: Map<number, RecommendedVideo>;
-  private ptNotes: Map<number, PtNote>;
-
-  private userIdCounter: number;
-  private categoryIdCounter: number;
-  private exerciseIdCounter: number;
-  private exerciseLogIdCounter: number;
-  private recommendedVideoIdCounter: number;
-  private ptNoteIdCounter: number;
+  private exerciseProgress: Map<number, ExerciseProgress>;
+  private programs: Map<number, Program>;
+  
+  private userCurrentId: number;
+  private exerciseCurrentId: number;
+  private progressCurrentId: number;
+  private programCurrentId: number;
 
   constructor() {
     this.users = new Map();
-    this.categories = new Map();
     this.exercises = new Map();
-    this.exerciseLogs = new Map();
-    this.recommendedVideos = new Map();
-    this.ptNotes = new Map();
-
-    this.userIdCounter = 1;
-    this.categoryIdCounter = 1;
-    this.exerciseIdCounter = 1;
-    this.exerciseLogIdCounter = 1;
-    this.recommendedVideoIdCounter = 1;
-    this.ptNoteIdCounter = 1;
-
-    // Initialize with sample data
-    this.initSampleData();
+    this.exerciseProgress = new Map();
+    this.programs = new Map();
+    
+    this.userCurrentId = 1;
+    this.exerciseCurrentId = 1;
+    this.progressCurrentId = 1;
+    this.programCurrentId = 1;
+    
+    // Add some default exercises
+    this.initializeDefaultExercises();
   }
 
-  // User operations
+  // User methods
   async getUser(id: number): Promise<User | undefined> {
     return this.users.get(id);
   }
@@ -91,288 +69,221 @@ export class MemStorage implements IStorage {
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.userIdCounter++;
+    const id = this.userCurrentId++;
     const user: User = { ...insertUser, id };
     this.users.set(id, user);
     return user;
   }
-
-  // Category operations
-  async getCategories(userId: number): Promise<Category[]> {
-    return Array.from(this.categories.values()).filter(
-      (category) => category.userId === userId,
-    );
+  
+  // Exercise methods
+  async getExercises(): Promise<Exercise[]> {
+    return Array.from(this.exercises.values());
   }
-
-  async getCategory(id: number): Promise<Category | undefined> {
-    return this.categories.get(id);
-  }
-
-  async createCategory(insertCategory: InsertCategory): Promise<Category> {
-    const id = this.categoryIdCounter++;
-    const category: Category = { ...insertCategory, id };
-    this.categories.set(id, category);
-    return category;
-  }
-
-  async updateCategory(id: number, categoryUpdate: Partial<InsertCategory>): Promise<Category | undefined> {
-    const category = this.categories.get(id);
-    if (!category) return undefined;
-    
-    const updatedCategory: Category = { ...category, ...categoryUpdate };
-    this.categories.set(id, updatedCategory);
-    return updatedCategory;
-  }
-
-  async deleteCategory(id: number): Promise<boolean> {
-    return this.categories.delete(id);
-  }
-
-  // Exercise operations
-  async getExercises(userId: number): Promise<Exercise[]> {
-    return Array.from(this.exercises.values()).filter(
-      (exercise) => exercise.userId === userId,
-    );
-  }
-
-  async getExercisesByCategory(categoryId: number): Promise<Exercise[]> {
-    return Array.from(this.exercises.values()).filter(
-      (exercise) => exercise.categoryId === categoryId,
-    );
-  }
-
+  
   async getExercise(id: number): Promise<Exercise | undefined> {
     return this.exercises.get(id);
   }
-
+  
+  async getExercisesByCategory(category: string): Promise<Exercise[]> {
+    return Array.from(this.exercises.values()).filter(
+      (exercise) => exercise.category === category
+    );
+  }
+  
   async createExercise(insertExercise: InsertExercise): Promise<Exercise> {
-    const id = this.exerciseIdCounter++;
+    const id = this.exerciseCurrentId++;
     const exercise: Exercise = { ...insertExercise, id };
     this.exercises.set(id, exercise);
     return exercise;
   }
-
+  
   async updateExercise(id: number, exerciseUpdate: Partial<InsertExercise>): Promise<Exercise | undefined> {
     const exercise = this.exercises.get(id);
     if (!exercise) return undefined;
     
-    const updatedExercise: Exercise = { ...exercise, ...exerciseUpdate };
+    const updatedExercise = { ...exercise, ...exerciseUpdate };
     this.exercises.set(id, updatedExercise);
     return updatedExercise;
   }
-
+  
   async deleteExercise(id: number): Promise<boolean> {
     return this.exercises.delete(id);
   }
-
-  // Exercise Log operations
-  async getExerciseLogs(userId: number): Promise<ExerciseLog[]> {
-    return Array.from(this.exerciseLogs.values()).filter(
-      (log) => log.userId === userId,
+  
+  // Exercise Progress methods
+  async getExerciseProgress(exerciseId: number): Promise<ExerciseProgress[]> {
+    return Array.from(this.exerciseProgress.values()).filter(
+      (progress) => progress.exerciseId === exerciseId
     );
   }
-
-  async getExerciseLogsByExercise(exerciseId: number): Promise<ExerciseLog[]> {
-    return Array.from(this.exerciseLogs.values()).filter(
-      (log) => log.exerciseId === exerciseId,
-    );
-  }
-
-  async createExerciseLog(insertLog: InsertExerciseLog): Promise<ExerciseLog> {
-    const id = this.exerciseLogIdCounter++;
-    const log: ExerciseLog = { 
-      ...insertLog, 
-      id, 
-      completedAt: insertLog.completedAt || new Date() 
+  
+  async createExerciseProgress(insertProgress: InsertExerciseProgress): Promise<ExerciseProgress> {
+    const id = this.progressCurrentId++;
+    const progress: ExerciseProgress = { 
+      ...insertProgress, 
+      id,
+      completedAt: insertProgress.completedAt || new Date()
     };
-    this.exerciseLogs.set(id, log);
-    return log;
+    this.exerciseProgress.set(id, progress);
+    return progress;
   }
-
-  // Recommended Videos operations
-  async getRecommendedVideos(userId: number): Promise<RecommendedVideo[]> {
-    return Array.from(this.recommendedVideos.values()).filter(
-      (video) => video.userId === userId || video.userId === null,
-    );
+  
+  // Program methods
+  async getPrograms(): Promise<Program[]> {
+    return Array.from(this.programs.values());
   }
-
-  async getRecommendedVideo(id: number): Promise<RecommendedVideo | undefined> {
-    return this.recommendedVideos.get(id);
+  
+  async getProgram(id: number): Promise<Program | undefined> {
+    return this.programs.get(id);
   }
-
-  async createRecommendedVideo(insertVideo: InsertRecommendedVideo): Promise<RecommendedVideo> {
-    const id = this.recommendedVideoIdCounter++;
-    const video: RecommendedVideo = { ...insertVideo, id };
-    this.recommendedVideos.set(id, video);
-    return video;
+  
+  async createProgram(insertProgram: InsertProgram): Promise<Program> {
+    const id = this.programCurrentId++;
+    const program: Program = { ...insertProgram, id };
+    this.programs.set(id, program);
+    return program;
   }
-
-  // PT Notes operations
-  async getPtNotes(userId: number): Promise<PtNote[]> {
-    return Array.from(this.ptNotes.values()).filter(
-      (note) => note.userId === userId,
-    );
+  
+  async updateProgram(id: number, programUpdate: Partial<InsertProgram>): Promise<Program | undefined> {
+    const program = this.programs.get(id);
+    if (!program) return undefined;
+    
+    const updatedProgram = { ...program, ...programUpdate };
+    this.programs.set(id, updatedProgram);
+    return updatedProgram;
   }
-
-  async getPtNote(id: number): Promise<PtNote | undefined> {
-    return this.ptNotes.get(id);
+  
+  async deleteProgram(id: number): Promise<boolean> {
+    return this.programs.delete(id);
   }
-
-  async createPtNote(insertNote: InsertPtNote): Promise<PtNote> {
-    const id = this.ptNoteIdCounter++;
-    const note: PtNote = { 
-      ...insertNote, 
-      id, 
-      uploadedAt: new Date() 
-    };
-    this.ptNotes.set(id, note);
-    return note;
-  }
-
-  // Initialize with sample data for demonstration
-  private initSampleData() {
-    // Create a demo user
-    const demoUser: User = {
-      id: this.userIdCounter++,
-      username: 'demo',
-      password: 'password'
-    };
-    this.users.set(demoUser.id, demoUser);
-
-    // Create categories
-    const coreCategory: Category = {
-      id: this.categoryIdCounter++,
-      name: 'Core Stability (McGill Big 3)',
-      userId: demoUser.id
-    };
-    this.categories.set(coreCategory.id, coreCategory);
-
-    const lowerBodyCategory: Category = {
-      id: this.categoryIdCounter++,
-      name: 'Lower Body Rehabilitation',
-      userId: demoUser.id
-    };
-    this.categories.set(lowerBodyCategory.id, lowerBodyCategory);
-
-    // Create exercises
-    const exercises: Partial<Exercise>[] = [
-      {
-        name: 'Bird Dog',
-        description: 'Quadruped exercise for core stability',
-        categoryId: coreCategory.id,
-        userId: demoUser.id,
-        sets: 3,
-        reps: 10,
-        holdDuration: 5,
-        techniqueTip: 'Keep your back flat and core engaged. Move opposite arm and leg simultaneously.'
-      },
-      {
-        name: 'Side Plank',
-        description: 'Lateral core stabilization exercise',
-        categoryId: coreCategory.id,
-        userId: demoUser.id,
-        sets: 3,
-        holdDuration: 20,
-        techniqueTip: 'Stack your feet and hips. Keep your body in a straight line. Breathe normally.'
-      },
-      {
-        name: 'Modified Curl-up',
-        description: 'Core flexion with minimal spine movement',
-        categoryId: coreCategory.id,
-        userId: demoUser.id,
-        sets: 3,
-        reps: 8,
-        holdDuration: 10,
-        techniqueTip: 'Keep one leg straight and one bent. Support your lower back with hands.'
-      },
-      {
-        name: 'Glute Bridge',
-        description: 'Posterior chain activation',
-        categoryId: lowerBodyCategory.id,
-        userId: demoUser.id,
-        sets: 4,
-        reps: 15,
-        holdDuration: 2,
-        techniqueTip: 'Squeeze glutes at the top. Keep core engaged.'
-      },
-      {
-        name: 'Single-Leg Balance',
-        description: 'Balance training for lower extremity',
-        categoryId: lowerBodyCategory.id,
-        userId: demoUser.id,
-        sets: 3,
-        holdDuration: 30,
-        techniqueTip: 'Keep your core engaged and maintain a soft bend in the supporting knee. Focus on a point in front of you for balance.'
-      },
-      {
-        name: 'Mini Squat with Band',
-        description: 'Strengthening exercise with resistance',
-        categoryId: lowerBodyCategory.id,
-        userId: demoUser.id,
-        sets: 3,
-        reps: 12,
-        equipment: 'Red resistance band',
-        techniqueTip: 'Keep the band taught throughout the exercise. Maintain knees in line with toes.'
-      }
-    ];
-
-    exercises.forEach(ex => {
-      const exercise: Exercise = {
-        id: this.exerciseIdCounter++,
-        description: '',
-        equipment: null,
-        restBetweenSets: 60,
-        videoUrl: null,
-        ...ex
-      } as Exercise;
-      this.exercises.set(exercise.id, exercise);
+  
+  // Initialize with default exercises
+  private initializeDefaultExercises() {
+    // McGill Big 3 - Core Stability exercises
+    this.createExercise({
+      name: "McGill Big 3 - Bird Dog",
+      category: "Core Stability",
+      type: "hold",
+      sets: 4,
+      holdDuration: 20, // 20 seconds hold
+      restTime: 30,
+      instructions: [
+        "Start on your hands and knees",
+        "Extend one arm forward and the opposite leg backward",
+        "Hold for the prescribed time while maintaining a neutral spine",
+        "Return to starting position and repeat with the opposite arm and leg"
+      ],
+      isPaired: true
     });
-
-    // Create exercise logs
-    const completedExercises = [
-      { exerciseId: 1, userId: demoUser.id, setsCompleted: 3, completedAt: new Date(Date.now() - 120 * 60000) },
-      { exerciseId: 2, userId: demoUser.id, setsCompleted: 3, completedAt: new Date(Date.now() - 105 * 60000) },
-      { exerciseId: 3, userId: demoUser.id, setsCompleted: 3, completedAt: new Date(Date.now() - 100 * 60000) },
-      { exerciseId: 4, userId: demoUser.id, setsCompleted: 4, completedAt: new Date(Date.now() - 60 * 60000) }
-    ];
-
-    completedExercises.forEach(ex => {
-      const log: ExerciseLog = {
-        id: this.exerciseLogIdCounter++,
-        notes: null,
-        ...ex
-      };
-      this.exerciseLogs.set(log.id, log);
+    
+    this.createExercise({
+      name: "McGill Big 3 - Side Plank",
+      category: "Core Stability",
+      type: "hold",
+      sets: 3,
+      holdDuration: 10, // 10 seconds hold
+      restTime: 30,
+      instructions: [
+        "Lie on your side with your elbow directly under your shoulder",
+        "Engage your core and lift your hips to create a straight line from head to feet",
+        "Hold this position for the indicated time",
+        "Breathe normally and maintain a neutral spine",
+        "Repeat on the other side"
+      ],
+      isPaired: true
     });
-
-    // Create recommended videos
-    const videos: Partial<RecommendedVideo>[] = [
-      {
-        title: '3 Core Exercises to Do Every Day',
-        source: 'YouTube',
-        thumbnailUrl: 'https://via.placeholder.com/150',
-        videoUrl: 'https://www.youtube.com/watch?v=example1',
-        recommendedBy: 'Dr. Smith'
-      },
-      {
-        title: 'Proper Form for McGill Big 3',
-        source: 'YouTube',
-        thumbnailUrl: 'https://via.placeholder.com/150',
-        videoUrl: 'https://www.youtube.com/watch?v=example2',
-        recommendedBy: 'Physical Therapy Expert'
-      }
-    ];
-
-    videos.forEach(v => {
-      const video: RecommendedVideo = {
-        id: this.recommendedVideoIdCounter++,
-        userId: null,
-        ...v
-      } as RecommendedVideo;
-      this.recommendedVideos.set(video.id, video);
+    
+    this.createExercise({
+      name: "McGill Big 3 - Curl-up",
+      category: "Core Stability",
+      type: "hold",
+      sets: 4,
+      holdDuration: 15, // 15 seconds hold
+      restTime: 30,
+      instructions: [
+        "Lie on your back with one knee bent and one leg straight",
+        "Place your hands under your lower back to maintain the natural curve",
+        "Lift your head and shoulders slightly off the ground",
+        "Hold the position without flexing your spine",
+        "Switch leg positions after each set"
+      ],
+      isPaired: false
+    });
+    
+    // Lower Body exercises
+    this.createExercise({
+      name: "Glute Bridge",
+      category: "Lower Body",
+      type: "rep",
+      sets: 3,
+      reps: 15,
+      restTime: 45,
+      instructions: [
+        "Lie on your back with knees bent and feet flat on the floor",
+        "Push through your heels to lift your hips up toward the ceiling",
+        "Squeeze your glutes at the top",
+        "Lower back down with control",
+        "Repeat for the prescribed number of repetitions"
+      ],
+      isPaired: false
+    });
+    
+    this.createExercise({
+      name: "Bodyweight Squat",
+      category: "Lower Body",
+      type: "rep",
+      sets: 3,
+      reps: 10,
+      restTime: 60,
+      instructions: [
+        "Stand with feet shoulder-width apart",
+        "Bend your knees and push your hips back as if sitting in a chair",
+        "Keep your chest up and knees aligned with your toes",
+        "Lower until thighs are parallel to the ground, or as deep as comfortable",
+        "Push through your heels to return to standing",
+        "Repeat for the prescribed number of repetitions"
+      ],
+      isPaired: false
+    });
+    
+    // Upper Body exercises
+    this.createExercise({
+      name: "Wall Push-up",
+      category: "Upper Body",
+      type: "rep",
+      sets: 3,
+      reps: 12,
+      restTime: 45,
+      instructions: [
+        "Stand facing a wall at arm's length",
+        "Place your hands on the wall at shoulder height",
+        "Bend your elbows to bring your chest toward the wall",
+        "Push back to the starting position",
+        "Repeat for the prescribed number of repetitions"
+      ],
+      isPaired: false
+    });
+    
+    this.createExercise({
+      name: "Resistance Band Rows",
+      category: "Upper Body",
+      type: "rep",
+      sets: 4,
+      reps: 10,
+      restTime: 60,
+      notes: "Equipment: Red resistance band",
+      equipmentNeeded: "Red resistance band",
+      instructions: [
+        "Secure a resistance band at chest height",
+        "Hold the band with both hands and step back until there's tension",
+        "Stand with feet shoulder-width apart, knees slightly bent",
+        "Pull the band toward your chest, squeezing your shoulder blades together",
+        "Slowly return to the starting position",
+        "Repeat for the prescribed number of repetitions"
+      ],
+      isPaired: false
     });
   }
 }
 
-// Export a single instance to be used throughout the application
 export const storage = new MemStorage();
