@@ -3,7 +3,7 @@ import { useRoute, useLocation } from 'wouter';
 import { useExercise } from '@/hooks/use-exercises';
 import { TabBar } from '@/components/TabBar';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Play } from 'lucide-react';
+import { ChevronLeft, Play, Edit } from 'lucide-react';
 import { formatDuration } from '@/lib/utils';
 
 export default function ExerciseDetail() {
@@ -19,6 +19,12 @@ export default function ExerciseDetail() {
   const handleStartExercise = () => {
     if (exercise) {
       setLocation(`/timer/${exercise.id}`);
+    }
+  };
+  
+  const handleEditExercise = () => {
+    if (exercise) {
+      setLocation(`/edit-exercise/${exercise.id}`);
     }
   };
 
@@ -69,9 +75,11 @@ export default function ExerciseDetail() {
             <div className="mb-8">
               <h2 className="text-lg font-semibold mb-3">Instructions</h2>
               <ol className="list-decimal pl-4 space-y-3 text-gray-700">
-                {exercise.instructions.map((instruction, index) => (
+                {exercise.instructions?.map((instruction, index) => (
                   <li key={index}>{instruction}</li>
-                ))}
+                )) || (
+                  <li>No instructions available.</li>
+                )}
               </ol>
             </div>
 
@@ -87,17 +95,17 @@ export default function ExerciseDetail() {
                   {exercise.type === 'hold' ? (
                     <div>
                       <p className="text-gray-500 text-sm">Hold</p>
-                      <p className="text-2xl font-semibold">{formatDuration(exercise.holdDuration)}</p>
+                      <p className="text-2xl font-semibold">{formatDuration(exercise.holdDuration || 0)}</p>
                     </div>
                   ) : (
                     <div>
                       <p className="text-gray-500 text-sm">Reps</p>
-                      <p className="text-2xl font-semibold">{exercise.reps}</p>
+                      <p className="text-2xl font-semibold">{exercise.reps || 0}</p>
                     </div>
                   )}
                   <div>
                     <p className="text-gray-500 text-sm">Rest</p>
-                    <p className="text-2xl font-semibold">{formatDuration(exercise.restTime)}</p>
+                    <p className="text-2xl font-semibold">{formatDuration(exercise.restTime || 0)}</p>
                   </div>
                   {exercise.isPaired && (
                     <div>
@@ -118,14 +126,23 @@ export default function ExerciseDetail() {
               <p className="text-sm text-gray-500 mt-2 text-center">Video provided by your physical therapist</p>
             </div>
 
-            {/* Start Workout Button */}
-            <div className="mt-6">
+            {/* Action Buttons */}
+            <div className="mt-6 space-y-3">
               <Button 
                 className="w-full py-4 h-auto text-base"
                 onClick={handleStartExercise}
               >
                 <Play className="h-5 w-5 mr-2" />
                 Start Exercise
+              </Button>
+              
+              <Button 
+                variant="outline"
+                className="w-full py-3 h-auto text-base"
+                onClick={handleEditExercise}
+              >
+                <Edit className="h-5 w-5 mr-2" />
+                Edit Exercise
               </Button>
             </div>
           </div>

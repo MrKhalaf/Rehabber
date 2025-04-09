@@ -8,6 +8,7 @@ import Home from "@/pages/Home";
 import ExerciseDetail from "@/pages/ExerciseDetail";
 import Timer from "@/pages/Timer";
 import AddExercise from "@/pages/AddExercise";
+import EditExercise from "@/pages/EditExercise";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/exercise/:id" component={ExerciseDetail} />
       <Route path="/timer/:id" component={Timer} />
       <Route path="/add-exercise" component={AddExercise} />
+      <Route path="/edit-exercise/:id" component={EditExercise} />
       {/* Future routes */}
       <Route path="/history" component={() => <div className="p-8">History page coming soon</div>} />
       <Route path="/progress" component={() => <div className="p-8">Progress tracking coming soon</div>} />
