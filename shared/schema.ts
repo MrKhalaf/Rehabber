@@ -1,4 +1,5 @@
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
+import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -50,7 +51,7 @@ export const exerciseInsertSchema = createInsertSchema(exercises).omit({
 // Exercise Progress
 export const exerciseProgress = pgTable("exercise_progress", {
   id: serial("id").primaryKey(),
-  exerciseId: integer("exercise_id").notNull(),
+  exerciseId: integer("exercise_id").notNull().references(() => exercises.id),
   completedAt: timestamp("completed_at").notNull().defaultNow(),
   completedSets: integer("completed_sets").notNull(),
   notes: text("notes")
@@ -71,6 +72,18 @@ export const programs = pgTable("programs", {
 export const programInsertSchema = createInsertSchema(programs).omit({
   id: true
 });
+
+// Define the relations between tables
+export const exercisesRelations = relations(exercises, ({ many }) => ({
+  progress: many(exerciseProgress),
+}));
+
+export const exerciseProgressRelations = relations(exerciseProgress, ({ one }) => ({
+  exercise: one(exercises, {
+    fields: [exerciseProgress.exerciseId],
+    references: [exercises.id],
+  }),
+}));
 
 // Type definitions
 export type Exercise = typeof exercises.$inferSelect;
