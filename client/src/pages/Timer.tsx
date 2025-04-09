@@ -42,12 +42,13 @@ export default function Timer() {
     onSetComplete: (set) => {
       toast({
         title: "Set Completed",
-        description: `You've completed set ${set}`,
+        description: `You've completed set ${set} of ${exercise?.sets || 1}`
       });
     },
     onSideChange: () => {
       toast({
-        description: "Switch sides now",
+        title: "Switch Sides",
+        description: "Now complete the exercise on the right side"
       });
     }
   });
@@ -164,11 +165,32 @@ export default function Timer() {
               Resume
             </Button>
           )}
+          
+          {timer.isResting ? (
+            <Button 
+              className="flex-1 py-4 h-auto bg-green-600 hover:bg-green-700"
+              onClick={timer.skip}
+            >
+              Skip Rest
+            </Button>
+          ) : (
+            <Button 
+              className="flex-1 py-4 h-auto"
+              onClick={timer.skip}
+            >
+              {exercise.type === 'hold' ? 'Complete Hold' : 'Complete Reps'}
+            </Button>
+          )}
+        </div>
+        
+        {/* Next Set Button */}
+        <div className="w-full mt-4">
           <Button 
-            className="flex-1 py-4 h-auto"
+            variant="outline"
+            className="w-full py-4 h-auto border-dashed"
             onClick={timer.nextSet}
           >
-            Next Set
+            Skip to Next Set
           </Button>
         </div>
       </div>

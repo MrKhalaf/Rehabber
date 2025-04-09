@@ -46,6 +46,7 @@ export function useTimer({
   const timerRef = useRef<number | null>(null);
   const startTimeRef = useRef<number>(0);
   const pausedTimeRef = useRef<number>(0);
+  const promptTimeoutRef = useRef<number | null>(null);
   
   // Calculate percentage for progress indicator
   const percentRemaining = (timeRemaining / (isResting ? restDuration : duration)) * 100;
@@ -55,7 +56,61 @@ export function useTimer({
       clearInterval(timerRef.current);
       timerRef.current = null;
     }
+    
+    // Also clear any pending prompt timeouts
+    if (promptTimeoutRef.current) {
+      clearTimeout(promptTimeoutRef.current);
+      promptTimeoutRef.current = null;
+    }
   }, []);
+  
+  // Function to prompt user action after a delay (for rest periods)
+  const setPromptTimeout = useCallback((callback: () => void, delayMs = 1000) => {
+    if (promptTimeoutRef.current) {
+      clearTimeout(promptTimeoutRef.current);
+    }
+    promptTimeoutRef.current = window.setTimeout(() => {
+      callback();
+      promptTimeoutRef.current = null;
+    }, delayMs);
+  }, []);
+  
+  // Function to proceed to next activity (exercise, rest, side, or set)
+  const proceedToNext = useCallback(() => {
+    if (isResting) {
+      // Rest period complete, move to next exercise or side
+      setIsResting(false);
+      
+      if (sides && currentSide === 'left') {
+        // Switch to right side for current set
+        setCurrentSide('right');
+        setTimeRemaining(duration);
+        if (onSideChange) onSideChange();
+        startTimeRef.current = Date.now();
+      } else {
+        // Current set is complete (including both sides if applicable)
+        if (currentSet < sets) {
+          // Move to next set
+          setCurrentSet(prev => prev + 1);
+          if (sides) setCurrentSide('left');
+          setTimeRemaining(duration);
+          if (onSetComplete) onSetComplete(currentSet);
+          startTimeRef.current = Date.now();
+        } else {
+          // All sets complete
+          setState('completed');
+          if (onComplete) onComplete();
+          return false; // Don't continue timer
+        }
+      }
+    } else {
+      // Exercise period complete, start rest
+      setTimeRemaining(restDuration);
+      setIsResting(true);
+      startTimeRef.current = Date.now();
+    }
+    return true; // Continue timer
+  }, [currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides]);
   
   const startTimer = useCallback(() => {
     clearTimer();
@@ -64,47 +119,40 @@ export function useTimer({
     
     timerRef.current = window.setInterval(() => {
       const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      const newTime = (isResting ? restDuration : duration) - elapsedSeconds;
+      const currentDuration = isResting ? restDuration : duration;
+      const newTime = currentDuration - elapsedSeconds;
       
       if (newTime <= 0) {
+        // Timer reached zero, proceed to next phase automatically
         clearTimer();
+        const shouldContinue = proceedToNext();
         
-        if (isResting) {
-          // Rest period complete, move to next exercise or side
-          setIsResting(false);
-          
-          if (sides && currentSide === 'left') {
-            // Switch to right side
-            setCurrentSide('right');
-            setTimeRemaining(duration);
-            if (onSideChange) onSideChange();
-            startTimer();
-          } else {
-            // Set is complete
-            if (currentSet < sets) {
-              // Move to next set
-              setCurrentSet(prev => prev + 1);
-              if (sides) setCurrentSide('left');
-              setTimeRemaining(duration);
-              if (onSetComplete) onSetComplete(currentSet);
-              startTimer();
-            } else {
-              // All sets complete
-              setState('completed');
-              if (onComplete) onComplete();
-            }
-          }
-        } else {
-          // Exercise period complete, start rest
-          setTimeRemaining(restDuration);
-          setIsResting(true);
-          startTimer();
+        if (shouldContinue) {
+          // Set a slight delay before auto-continuing to the next phase
+          // This gives the user a moment to see that the timer has completed
+          setPromptTimeout(() => {
+            timerRef.current = window.setInterval(() => {
+              const newElapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+              const newCurrentDuration = isResting ? restDuration : duration;
+              const newTimeRemaining = newCurrentDuration - newElapsedSeconds;
+              
+              if (newTimeRemaining <= 0) {
+                clearTimer();
+                const shouldContinueAgain = proceedToNext();
+                if (shouldContinueAgain) {
+                  startTimer();
+                }
+              } else {
+                setTimeRemaining(newTimeRemaining);
+              }
+            }, 100);
+          }, 500);
         }
       } else {
         setTimeRemaining(newTime);
       }
     }, 100); // Update more frequently for smoother countdown
-  }, [clearTimer, currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides]);
+  }, [clearTimer, duration, isResting, proceedToNext, restDuration, setPromptTimeout]);
   
   // Stop timer when component unmounts
   useEffect(() => {
@@ -132,10 +180,27 @@ export function useTimer({
   // Resume the timer
   const resume = useCallback(() => {
     if (state === 'paused') {
+      // Adjust start time to account for already elapsed time
       startTimeRef.current = Date.now() - ((isResting ? restDuration : duration) - pausedTimeRef.current) * 1000;
-      startTimer();
+      setState('running');
+      
+      timerRef.current = window.setInterval(() => {
+        const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        const currentDuration = isResting ? restDuration : duration;
+        const newTime = currentDuration - elapsedSeconds;
+        
+        if (newTime <= 0) {
+          clearTimer();
+          const shouldContinue = proceedToNext();
+          if (shouldContinue) {
+            startTimer();
+          }
+        } else {
+          setTimeRemaining(newTime);
+        }
+      }, 100);
     }
-  }, [duration, isResting, restDuration, startTimer, state]);
+  }, [clearTimer, duration, isResting, proceedToNext, restDuration, startTimer, state]);
   
   // Reset the timer
   const reset = useCallback(() => {
@@ -149,41 +214,19 @@ export function useTimer({
   
   // Skip to next part
   const skip = useCallback(() => {
-    if (state !== 'running') return;
+    if (state !== 'running' && state !== 'paused') return;
     
     clearTimer();
+    const shouldContinue = proceedToNext();
     
-    if (isResting) {
-      // Skip rest period
-      setIsResting(false);
-      
-      if (sides && currentSide === 'left') {
-        // Switch to right side
-        setCurrentSide('right');
-        setTimeRemaining(duration);
-        if (onSideChange) onSideChange();
-        startTimer();
-      } else {
-        // Move to next set
-        if (currentSet < sets) {
-          setCurrentSet(prev => prev + 1);
-          if (sides) setCurrentSide('left');
-          setTimeRemaining(duration);
-          if (onSetComplete) onSetComplete(currentSet);
-          startTimer();
-        } else {
-          // All sets complete
-          setState('completed');
-          if (onComplete) onComplete();
-        }
-      }
-    } else {
-      // Skip exercise period, start rest
-      setTimeRemaining(restDuration);
-      setIsResting(true);
+    if (shouldContinue && state === 'running') {
       startTimer();
+    } else if (shouldContinue && state === 'paused') {
+      // If we were paused, stay paused but update the display
+      setState('paused');
+      pausedTimeRef.current = isResting ? restDuration : duration;
     }
-  }, [clearTimer, currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides, startTimer, state]);
+  }, [clearTimer, isResting, duration, proceedToNext, restDuration, startTimer, state]);
   
   // Skip to next set directly
   const nextSet = useCallback(() => {
@@ -191,13 +234,21 @@ export function useTimer({
     
     clearTimer();
     
+    // Skip directly to the next set, bypassing rest and side changes
     if (currentSet < sets) {
       setCurrentSet(prev => prev + 1);
       if (sides) setCurrentSide('left');
       setTimeRemaining(duration);
       setIsResting(false);
       if (onSetComplete) onSetComplete(currentSet);
-      startTimer();
+      
+      if (state === 'running') {
+        startTimer();
+      } else {
+        // If we were paused, stay paused but update the display
+        setState('paused');
+        pausedTimeRef.current = duration;
+      }
     } else {
       // All sets complete
       setState('completed');
