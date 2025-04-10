@@ -360,7 +360,13 @@ export default function AddExercise() {
                                     type="number" 
                                     placeholder="e.g., 10" 
                                     {...field}
-                                    onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                                    onChange={e => {
+                                      if (e.target.value === '') {
+                                        field.onChange('');
+                                      } else {
+                                        field.onChange(parseInt(e.target.value) || 0);
+                                      }
+                                    }}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -379,7 +385,13 @@ export default function AddExercise() {
                                     type="number" 
                                     placeholder="e.g., 30" 
                                     {...field}
-                                    onChange={e => field.onChange(parseInt(e.target.value) || 0)}
+                                    onChange={e => {
+                                      if (e.target.value === '') {
+                                        field.onChange('');
+                                      } else {
+                                        field.onChange(parseInt(e.target.value) || 0);
+                                      }
+                                    }}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -400,7 +412,13 @@ export default function AddExercise() {
                                 type="number" 
                                 placeholder="e.g., 60" 
                                 {...field}
-                                onChange={e => field.onChange(parseInt(e.target.value) || 30)}
+                                onChange={e => {
+                                  if (e.target.value === '') {
+                                    field.onChange('');
+                                  } else {
+                                    field.onChange(parseInt(e.target.value) || 30);
+                                  }
+                                }}
                               />
                             </FormControl>
                             <FormMessage />
@@ -417,7 +435,7 @@ export default function AddExercise() {
                               <input
                                 type="checkbox"
                                 className="h-4 w-4 mt-1"
-                                checked={field.value}
+                                checked={field.value === true}
                                 onChange={field.onChange}
                               />
                             </FormControl>
