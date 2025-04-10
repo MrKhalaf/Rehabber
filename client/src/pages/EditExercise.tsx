@@ -236,7 +236,14 @@ export default function EditExercise() {
                               type="number" 
                               placeholder="e.g., 3" 
                               {...field}
-                              onChange={e => field.onChange(parseInt(e.target.value) || 1)}
+                              onChange={e => {
+                                // Allow empty value during editing
+                                if (e.target.value === '') {
+                                  field.onChange('');
+                                } else {
+                                  field.onChange(parseInt(e.target.value) || 1);
+                                }
+                              }}
                               value={field.value}
                             />
                           </FormControl>
@@ -257,8 +264,14 @@ export default function EditExercise() {
                                 type="number" 
                                 placeholder="e.g., 10" 
                                 {...field}
-                                onChange={e => field.onChange(parseInt(e.target.value) || 0)}
-                                value={field.value || 0}
+                                onChange={e => {
+                                  if (e.target.value === '') {
+                                    field.onChange('');
+                                  } else {
+                                    field.onChange(parseInt(e.target.value) || 0);
+                                  }
+                                }}
+                                value={field.value}
                               />
                             </FormControl>
                             <FormMessage />
@@ -277,8 +290,14 @@ export default function EditExercise() {
                                 type="number" 
                                 placeholder="e.g., 30" 
                                 {...field}
-                                onChange={e => field.onChange(parseInt(e.target.value) || 0)}
-                                value={field.value || 0}
+                                onChange={e => {
+                                  if (e.target.value === '') {
+                                    field.onChange('');
+                                  } else {
+                                    field.onChange(parseInt(e.target.value) || 0);
+                                  }
+                                }}
+                                value={field.value}
                               />
                             </FormControl>
                             <FormMessage />
@@ -298,8 +317,14 @@ export default function EditExercise() {
                               type="number" 
                               placeholder="e.g., 60" 
                               {...field}
-                              onChange={e => field.onChange(parseInt(e.target.value) || 0)}
-                              value={field.value || 0}
+                              onChange={e => {
+                                if (e.target.value === '') {
+                                  field.onChange('');
+                                } else {
+                                  field.onChange(parseInt(e.target.value) || 0);
+                                }
+                              }}
+                              value={field.value}
                             />
                           </FormControl>
                           <FormMessage />

@@ -334,7 +334,13 @@ export default function AddExercise() {
                                   type="number" 
                                   placeholder="e.g., 3" 
                                   {...field}
-                                  onChange={e => field.onChange(parseInt(e.target.value) || 1)}
+                                  onChange={e => {
+                                    if (e.target.value === '') {
+                                      field.onChange('');
+                                    } else {
+                                      field.onChange(parseInt(e.target.value) || 1);
+                                    }
+                                  }}
                                 />
                               </FormControl>
                               <FormMessage />
