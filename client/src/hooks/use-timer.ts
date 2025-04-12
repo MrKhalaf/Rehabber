@@ -77,86 +77,100 @@ export function useTimer({
   
   // Function to proceed to next activity (exercise, rest, side, or set)
   const proceedToNext = useCallback(() => {
-    if (isResting) {
-      // Rest period complete, move to next exercise or side
+    // IMPORTANT: We need to capture current state before making changes
+    // since the updates might not be immediately reflected
+    const wasResting = isResting;
+    const currentSideCopy = currentSide;
+    const currentSetCopy = currentSet;
+    
+    console.log(`Timer state transition:
+      From: ${wasResting ? 'Rest' : 'Exercise'} period
+      Current set: ${currentSetCopy}/${sets}
+      Current side: ${currentSideCopy}`);
+    
+    if (wasResting) {
+      // Coming from rest period, move to exercise period
       setIsResting(false);
       
-      if (sides && currentSide === 'left') {
+      if (sides && currentSideCopy === 'left') {
         // Switch to right side for current set
+        console.log('Switching to right side');
         setCurrentSide('right');
-        setTimeRemaining(duration);
+        setTimeRemaining(duration); // Use exercise duration
         if (onSideChange) onSideChange();
-        startTimeRef.current = Date.now();
       } else {
         // Current set is complete (including both sides if applicable)
-        if (currentSet < sets) {
+        if (currentSetCopy < sets) {
           // Move to next set
+          console.log(`Moving to set ${currentSetCopy + 1}`);
           setCurrentSet(prev => prev + 1);
           if (sides) setCurrentSide('left');
-          setTimeRemaining(duration);
-          if (onSetComplete) onSetComplete(currentSet);
-          startTimeRef.current = Date.now();
+          setTimeRemaining(duration); // Use exercise duration
+          if (onSetComplete) onSetComplete(currentSetCopy);
         } else {
           // All sets complete
+          console.log('All sets complete!');
           setState('completed');
           if (onComplete) onComplete();
           return false; // Don't continue timer
         }
       }
     } else {
-      // Exercise period complete, start rest
-      setTimeRemaining(restDuration);
+      // Coming from exercise period, move to rest period
+      console.log('Moving to rest period');
+      setTimeRemaining(restDuration); // Use rest duration
       setIsResting(true);
-      startTimeRef.current = Date.now();
     }
+    
+    // Always update the start time for the next phase
+    startTimeRef.current = Date.now();
     return true; // Continue timer
   }, [currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides]);
   
   const startTimer = useCallback(() => {
+    // Clear any existing timers first
     clearTimer();
+    
+    // Set the start time reference and update state
     startTimeRef.current = Date.now();
     setState('running');
     
+    console.log(`Starting timer: ${isResting ? 'REST' : 'EXERCISE'} phase`);
+    console.log(`Duration: ${isResting ? restDuration : duration} seconds`);
+    
+    // Set up the timer interval
     timerRef.current = window.setInterval(() => {
+      // Calculate elapsed time and remaining time
       const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      // Important: Use the current isResting state to determine which duration to use
-      const currentDuration = isResting ? restDuration : duration;
-      const newTime = currentDuration - elapsedSeconds;
+      
+      // CRITICAL: Capture the current isResting state to determine which duration to use
+      // This ensures we're consistent within this timer tick
+      const isRestingNow = isResting;
+      const currentDuration = isRestingNow ? restDuration : duration;
+      const newTime = Math.max(0, currentDuration - elapsedSeconds);
       
       if (newTime <= 0) {
-        // Timer reached zero, proceed to next phase automatically
+        // Timer reached zero, stop the current timer
         clearTimer();
+        console.log(`Timer complete for ${isRestingNow ? 'REST' : 'EXERCISE'} phase`);
+        
+        // Move to the next phase (exercise -> rest, rest -> exercise, or complete)
         const shouldContinue = proceedToNext();
         
         if (shouldContinue) {
-          // Set a slight delay before auto-continuing to the next phase
-          // This gives the user a moment to see that the timer has completed
+          // Add a short delay before starting the next phase
+          // This gives the user time to see that the current phase is complete
           setPromptTimeout(() => {
-            // Start a new timer with the updated isResting state
-            startTimeRef.current = Date.now();
-            
-            timerRef.current = window.setInterval(() => {
-              const newElapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
-              // We need to use the UPDATED isResting state after proceedToNext was called
-              const newCurrentDuration = isResting ? restDuration : duration;
-              const newTimeRemaining = newCurrentDuration - newElapsedSeconds;
-              
-              if (newTimeRemaining <= 0) {
-                clearTimer();
-                const shouldContinueAgain = proceedToNext();
-                if (shouldContinueAgain) {
-                  startTimer();
-                }
-              } else {
-                setTimeRemaining(newTimeRemaining);
-              }
-            }, 100);
+            // Start the next phase timer
+            console.log('Starting next phase timer');
+            startTimer();
           }, 500);
         }
       } else {
+        // Update the displayed time
         setTimeRemaining(newTime);
       }
-    }, 100); // Update more frequently for smoother countdown
+    }, 100); // Update frequently for smooth countdown
   }, [clearTimer, duration, isResting, proceedToNext, restDuration, setPromptTimeout]);
   
   // Stop timer when component unmounts
@@ -185,29 +199,47 @@ export function useTimer({
   // Resume the timer
   const resume = useCallback(() => {
     if (state === 'paused') {
+      console.log(`Resuming timer: ${isResting ? 'REST' : 'EXERCISE'} phase`);
+      console.log(`Time remaining: ${pausedTimeRef.current} seconds`);
+      
       // Adjust start time to account for already elapsed time
-      startTimeRef.current = Date.now() - ((isResting ? restDuration : duration) - pausedTimeRef.current) * 1000;
+      const currentDuration = isResting ? restDuration : duration;
+      startTimeRef.current = Date.now() - (currentDuration - pausedTimeRef.current) * 1000;
       setState('running');
       
+      // Instead of duplicating timer logic here, just call startTimer
+      // But first set timeRemaining to pick up from where we left off
+      setTimeRemaining(pausedTimeRef.current);
+      
+      // Use the main timer implementation
       timerRef.current = window.setInterval(() => {
+        // Calculate elapsed time and remaining time
         const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        // Important: Use the current isResting state to determine which duration to use
-        const currentDuration = isResting ? restDuration : duration;
-        const newTime = currentDuration - elapsedSeconds;
+        
+        // CRITICAL: Capture the current isResting state to determine which duration to use
+        const isRestingNow = isResting;
+        const currentDuration = isRestingNow ? restDuration : duration;
+        const newTime = Math.max(0, currentDuration - elapsedSeconds);
         
         if (newTime <= 0) {
+          // Timer reached zero
           clearTimer();
+          console.log(`Timer complete for ${isRestingNow ? 'REST' : 'EXERCISE'} phase`);
+          
+          // Move to next phase
           const shouldContinue = proceedToNext();
           if (shouldContinue) {
-            // Using startTimer will properly handle the timer with the updated isResting state
-            startTimer();
+            setPromptTimeout(() => {
+              console.log('Starting next phase timer after resume');
+              startTimer();
+            }, 500);
           }
         } else {
           setTimeRemaining(newTime);
         }
       }, 100);
     }
-  }, [clearTimer, duration, isResting, proceedToNext, restDuration, startTimer, state]);
+  }, [clearTimer, duration, isResting, proceedToNext, restDuration, setPromptTimeout, startTimer, state]);
   
   // Reset the timer
   const reset = useCallback(() => {
