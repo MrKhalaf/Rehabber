@@ -119,6 +119,7 @@ export function useTimer({
     
     timerRef.current = window.setInterval(() => {
       const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      // Important: Use the current isResting state to determine which duration to use
       const currentDuration = isResting ? restDuration : duration;
       const newTime = currentDuration - elapsedSeconds;
       
@@ -131,8 +132,12 @@ export function useTimer({
           // Set a slight delay before auto-continuing to the next phase
           // This gives the user a moment to see that the timer has completed
           setPromptTimeout(() => {
+            // Start a new timer with the updated isResting state
+            startTimeRef.current = Date.now();
+            
             timerRef.current = window.setInterval(() => {
               const newElapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+              // We need to use the UPDATED isResting state after proceedToNext was called
               const newCurrentDuration = isResting ? restDuration : duration;
               const newTimeRemaining = newCurrentDuration - newElapsedSeconds;
               
@@ -186,6 +191,7 @@ export function useTimer({
       
       timerRef.current = window.setInterval(() => {
         const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        // Important: Use the current isResting state to determine which duration to use
         const currentDuration = isResting ? restDuration : duration;
         const newTime = currentDuration - elapsedSeconds;
         
@@ -193,6 +199,7 @@ export function useTimer({
           clearTimer();
           const shouldContinue = proceedToNext();
           if (shouldContinue) {
+            // Using startTimer will properly handle the timer with the updated isResting state
             startTimer();
           }
         } else {
@@ -220,10 +227,12 @@ export function useTimer({
     const shouldContinue = proceedToNext();
     
     if (shouldContinue && state === 'running') {
+      // Start the timer with the updated isResting state
       startTimer();
     } else if (shouldContinue && state === 'paused') {
       // If we were paused, stay paused but update the display
       setState('paused');
+      // Make sure we're using the UPDATED isResting state after calling proceedToNext
       pausedTimeRef.current = isResting ? restDuration : duration;
     }
   }, [clearTimer, isResting, duration, proceedToNext, restDuration, startTimer, state]);
