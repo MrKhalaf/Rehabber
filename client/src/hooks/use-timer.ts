@@ -99,9 +99,11 @@ export function useTimer({
       isResting value: ${isResting}
       Side strategy: ${sideStrategy}`);
     
+    // If we were doing a rest period, now start the next exercise period
     if (wasResting) {
-      // Coming from rest period, move to exercise period
+      // Coming from rest period, move to the next exercise period
       setIsResting(false);
+      setTimeRemaining(duration);
       
       if (sides) {
         // Handle sides according to strategy
@@ -111,7 +113,6 @@ export function useTimer({
             // Switch to right side for current set
             console.log('Switching to right side (alternate strategy)');
             setCurrentSide('right');
-            setTimeRemaining(duration); // Use exercise duration
             if (onSideChange) onSideChange();
           } else {
             // We've completed both sides of the current set
@@ -120,7 +121,6 @@ export function useTimer({
               console.log(`Moving to set ${currentSetCopy + 1} (alternate strategy)`);
               setCurrentSet(prev => prev + 1);
               setCurrentSide('left');
-              setTimeRemaining(duration); 
               if (onSetComplete) onSetComplete(currentSetCopy);
             } else {
               // All sets and sides complete
@@ -137,15 +137,12 @@ export function useTimer({
               // Move to next set, still on left side
               console.log(`Moving to set ${currentSetCopy + 1} (sequential strategy, left side)`);
               setCurrentSet(prev => prev + 1);
-              setCurrentSide('left');
-              setTimeRemaining(duration);
               if (onSetComplete) onSetComplete(currentSetCopy);
             } else {
               // All sets on left side complete, switch to right side set 1
               console.log('Switching to right side, set 1 (sequential strategy)');
               setCurrentSet(1);
               setCurrentSide('right');
-              setTimeRemaining(duration);
               if (onSideChange) onSideChange();
             }
           } else {
@@ -154,7 +151,6 @@ export function useTimer({
               // Move to next set on right side
               console.log(`Moving to set ${currentSetCopy + 1} (sequential strategy, right side)`);
               setCurrentSet(prev => prev + 1);
-              setTimeRemaining(duration);
               if (onSetComplete) onSetComplete(currentSetCopy);
             } else {
               // All sets on both sides complete
@@ -171,7 +167,6 @@ export function useTimer({
           // Move to next set
           console.log(`Moving to set ${currentSetCopy + 1} (no sides)`);
           setCurrentSet(prev => prev + 1);
-          setTimeRemaining(duration); // Use exercise duration
           if (onSetComplete) onSetComplete(currentSetCopy);
         } else {
           // All sets complete
@@ -191,7 +186,7 @@ export function useTimer({
     // Always update the start time for the next phase
     // Add a small delay to ensure state updates are processed
     setTimeout(() => {
-      console.log(`After state update - isResting is now: ${isResting}`);
+      console.log(`After state update - isResting is now: ${isResting ? 'REST' : 'EXERCISE'}`);
     }, 100);
     
     startTimeRef.current = Date.now();
@@ -355,6 +350,10 @@ export function useTimer({
     console.log(`Current side: ${currentSide || 'none'}`);
     console.log(`isResting before skip: ${isResting}`);
     console.log(`------------------------------`);
+    
+    // If user is skipping a rest period, move directly to the next exercise phase
+    // This ensures proper sequence: hold → rest → hold → rest
+    const wasResting = isResting;
     
     // Process the next phase
     const shouldContinue = proceedToNext();

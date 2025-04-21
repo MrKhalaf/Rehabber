@@ -22,7 +22,7 @@ export default function Timer() {
   const exerciseId = match ? parseInt(params.id) : null;
   const { data: exercise, isLoading, isError } = useExercise(exerciseId);
   const recordProgress = useRecordExerciseProgress();
-  const [sideStrategy, setSideStrategy] = useState<SideStrategy>('alternate');
+  const [sideStrategy, setSideStrategy] = useState<SideStrategy>('sequential');
 
   const handleExerciseComplete = () => {
     if (exercise) {
@@ -86,7 +86,15 @@ export default function Timer() {
 
   const getSideLabel = () => {
     if (!exercise.isPaired) return '';
-    return timer.currentSide === 'left' ? 'Left Side' : 'Right Side';
+    
+    const side = timer.currentSide === 'left' ? 'Left Side' : 'Right Side';
+    
+    // For sequential strategy, show more context about the sides
+    if (sideStrategy === 'sequential' && timer.state !== 'inactive') {
+      return `${side} (${timer.currentSide === 'left' ? '1st' : '2nd'} phase)`;
+    }
+    
+    return side;
   };
 
   const getActionText = () => {
