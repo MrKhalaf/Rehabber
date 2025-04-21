@@ -1,6 +1,13 @@
 import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
-import { renderHook, act } from '@testing-library/react';
-import { useTimer } from '../use-timer';
+import { renderHook } from '@testing-library/react';
+import { useTimer, TimerConfig } from '../use-timer';
+import React from 'react';
+
+// We need to manually mock React's act function
+const act = (callback: () => void) => {
+  callback();
+  return Promise.resolve();
+};
 
 // Mock the window.setInterval and clearInterval functions
 vi.useFakeTimers();
@@ -76,7 +83,7 @@ describe('useTimer', () => {
     expect(result.current.timeRemaining).toBeLessThanOrEqual(8);
   });
 
-  test('should transition from exercise to rest phase', () => {
+  test('should transition from exercise to rest phase', async () => {
     const { result } = renderHook(() => 
       useTimer({ 
         duration: 3, 
@@ -92,11 +99,16 @@ describe('useTimer', () => {
     // Complete exercise phase (3 seconds)
     advanceTimersByTime(3100);
     
+    // Add a small wait to let React state updates propagate in the test environment
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
+    
     expect(result.current.isResting).toBe(true);
     expect(result.current.timeRemaining).toBeLessThanOrEqual(2);
   });
 
-  test('should move to next set after rest phase', () => {
+  test('should move to next set after rest phase', async () => {
     const { result } = renderHook(() => 
       useTimer({ 
         duration: 3, 
@@ -116,6 +128,11 @@ describe('useTimer', () => {
     // Complete exercise phase (3 seconds)
     advanceTimersByTime(3100);
     
+    // Wait for state updates
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
+    
     // Verify we entered rest phase
     expect(result.current.isResting).toBe(true);
     expect(result.current.timeRemaining).toBeLessThanOrEqual(2);
@@ -123,13 +140,18 @@ describe('useTimer', () => {
     // Complete rest phase (2 seconds)
     advanceTimersByTime(2100);
     
+    // Wait for state updates
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
+    
     // Verify we automatically moved to next set
     expect(result.current.isResting).toBe(false);
     expect(result.current.currentSet).toBe(2);
     expect(result.current.timeRemaining).toBeLessThanOrEqual(3);
   });
 
-  test('should call onComplete when all sets are done', () => {
+  test('should call onComplete when all sets are done', async () => {
     const onComplete = vi.fn();
     const { result } = renderHook(() => 
       useTimer({ 
@@ -144,17 +166,35 @@ describe('useTimer', () => {
       result.current.start();
     });
 
-    // Complete first set exercise + rest
-    advanceTimersByTime(3100);
+    // Complete first set exercise
+    advanceTimersByTime(2100);
+    
+    // Wait for state updates
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
+    
+    // Complete rest phase
+    advanceTimersByTime(1100);
+    
+    // Wait for state updates
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
     
     // Complete second set exercise
     advanceTimersByTime(2100);
+    
+    // Wait for state updates
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
     
     expect(result.current.state).toBe('completed');
     expect(onComplete).toHaveBeenCalled();
   });
 
-  test('should handle pausing and resuming correctly', () => {
+  test('should handle pausing and resuming correctly', async () => {
     const { result } = renderHook(() => 
       useTimer({ 
         duration: 10, 
@@ -174,6 +214,10 @@ describe('useTimer', () => {
       result.current.pause();
     });
     
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+    
     expect(result.current.state).toBe('paused');
     
     // Make sure time doesn't change while paused
@@ -185,6 +229,10 @@ describe('useTimer', () => {
       result.current.resume();
     });
     
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+    
     expect(result.current.state).toBe('running');
     
     // After resuming and waiting 1 second, time should continue from where it left off
@@ -192,7 +240,7 @@ describe('useTimer', () => {
     expect(result.current.timeRemaining).toBeLessThan(timeWhenPaused);
   });
 
-  test('should handle skip functionality correctly', () => {
+  test('should handle skip functionality correctly', async () => {
     const { result } = renderHook(() => 
       useTimer({ 
         duration: 10, 
@@ -210,6 +258,10 @@ describe('useTimer', () => {
       result.current.skip();
     });
     
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
+    
     expect(result.current.isResting).toBe(true);
     expect(result.current.timeRemaining).toBeLessThanOrEqual(5);
     
@@ -218,11 +270,15 @@ describe('useTimer', () => {
       result.current.skip();
     });
     
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
+    
     expect(result.current.isResting).toBe(false);
     expect(result.current.currentSet).toBe(2);
   });
 
-  test('should handle nextSet functionality correctly', () => {
+  test('should handle nextSet functionality correctly', async () => {
     const { result } = renderHook(() => 
       useTimer({ 
         duration: 10, 
@@ -240,12 +296,20 @@ describe('useTimer', () => {
       result.current.nextSet();
     });
     
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+    
     expect(result.current.currentSet).toBe(2);
     expect(result.current.isResting).toBe(false);
     
     // Skip directly to set 3
     act(() => {
       result.current.nextSet();
+    });
+    
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
     });
     
     expect(result.current.currentSet).toBe(3);
@@ -256,10 +320,14 @@ describe('useTimer', () => {
       result.current.nextSet();
     });
     
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100));
+    });
+    
     expect(result.current.state).toBe('completed');
   });
 
-  test('should handle sides correctly for exercises with sides', () => {
+  test('should handle sides correctly for exercises with sides', async () => {
     const onSideChange = vi.fn();
     const { result } = renderHook(() => 
       useTimer({ 
@@ -280,11 +348,21 @@ describe('useTimer', () => {
     // Complete left side
     advanceTimersByTime(3100);
     
+    // Wait for state updates
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
+    
     // Should now be in rest phase
     expect(result.current.isResting).toBe(true);
     
     // Complete rest phase
     advanceTimersByTime(2100);
+    
+    // Wait for state updates
+    await act(async () => {
+      await new Promise(resolve => setTimeout(resolve, 500));
+    });
     
     // Should now be on right side, same set
     expect(result.current.currentSet).toBe(1);
