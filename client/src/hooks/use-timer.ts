@@ -2,11 +2,19 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 export type TimerState = 'inactive' | 'running' | 'paused' | 'completed';
 
+/**
+ * Defines how to handle exercises with sides
+ * - 'alternate': Alternate sides within each set (left, then right)
+ * - 'sequential': Complete all sets on one side before switching to the other
+ */
+export type SideStrategy = 'alternate' | 'sequential';
+
 export interface TimerConfig {
   duration: number;
   restDuration?: number;
   sets?: number;
   sides?: boolean;
+  sideStrategy?: SideStrategy;
   onComplete?: () => void;
   onSetComplete?: (set: number) => void;
   onSideChange?: () => void;
@@ -33,6 +41,7 @@ export function useTimer({
   restDuration = 30,
   sets = 1,
   sides = false,
+  sideStrategy = 'alternate',
   onComplete,
   onSetComplete,
   onSideChange
@@ -87,30 +96,86 @@ export function useTimer({
       From: ${wasResting ? 'Rest' : 'Exercise'} period
       Current set: ${currentSetCopy}/${sets}
       Current side: ${currentSideCopy}
-      isResting value: ${isResting}`);
+      isResting value: ${isResting}
+      Side strategy: ${sideStrategy}`);
     
     if (wasResting) {
       // Coming from rest period, move to exercise period
       setIsResting(false);
       
-      if (sides && currentSideCopy === 'left') {
-        // Switch to right side for current set
-        console.log('Switching to right side');
-        setCurrentSide('right');
-        setTimeRemaining(duration); // Use exercise duration
-        if (onSideChange) onSideChange();
+      if (sides) {
+        // Handle sides according to strategy
+        if (sideStrategy === 'alternate') {
+          // Alternate strategy: switch between left and right for each set
+          if (currentSideCopy === 'left') {
+            // Switch to right side for current set
+            console.log('Switching to right side (alternate strategy)');
+            setCurrentSide('right');
+            setTimeRemaining(duration); // Use exercise duration
+            if (onSideChange) onSideChange();
+          } else {
+            // We've completed both sides of the current set
+            if (currentSetCopy < sets) {
+              // Move to next set
+              console.log(`Moving to set ${currentSetCopy + 1} (alternate strategy)`);
+              setCurrentSet(prev => prev + 1);
+              setCurrentSide('left');
+              setTimeRemaining(duration); 
+              if (onSetComplete) onSetComplete(currentSetCopy);
+            } else {
+              // All sets and sides complete
+              console.log('All sets complete! (alternate strategy)');
+              setState('completed');
+              if (onComplete) onComplete();
+              return false; // Don't continue timer
+            }
+          }
+        } else if (sideStrategy === 'sequential') {
+          // Sequential strategy: complete all sets on left side, then all sets on right
+          if (currentSideCopy === 'left') {
+            if (currentSetCopy < sets) {
+              // Move to next set, still on left side
+              console.log(`Moving to set ${currentSetCopy + 1} (sequential strategy, left side)`);
+              setCurrentSet(prev => prev + 1);
+              setCurrentSide('left');
+              setTimeRemaining(duration);
+              if (onSetComplete) onSetComplete(currentSetCopy);
+            } else {
+              // All sets on left side complete, switch to right side set 1
+              console.log('Switching to right side, set 1 (sequential strategy)');
+              setCurrentSet(1);
+              setCurrentSide('right');
+              setTimeRemaining(duration);
+              if (onSideChange) onSideChange();
+            }
+          } else {
+            // Right side
+            if (currentSetCopy < sets) {
+              // Move to next set on right side
+              console.log(`Moving to set ${currentSetCopy + 1} (sequential strategy, right side)`);
+              setCurrentSet(prev => prev + 1);
+              setTimeRemaining(duration);
+              if (onSetComplete) onSetComplete(currentSetCopy);
+            } else {
+              // All sets on both sides complete
+              console.log('All sets complete! (sequential strategy)');
+              setState('completed');
+              if (onComplete) onComplete();
+              return false; // Don't continue timer
+            }
+          }
+        }
       } else {
-        // Current set is complete (including both sides if applicable)
+        // No sides, just handle sets
         if (currentSetCopy < sets) {
           // Move to next set
-          console.log(`Moving to set ${currentSetCopy + 1}`);
+          console.log(`Moving to set ${currentSetCopy + 1} (no sides)`);
           setCurrentSet(prev => prev + 1);
-          if (sides) setCurrentSide('left');
           setTimeRemaining(duration); // Use exercise duration
           if (onSetComplete) onSetComplete(currentSetCopy);
         } else {
           // All sets complete
-          console.log('All sets complete!');
+          console.log('All sets complete! (no sides)');
           setState('completed');
           if (onComplete) onComplete();
           return false; // Don't continue timer
@@ -131,7 +196,7 @@ export function useTimer({
     
     startTimeRef.current = Date.now();
     return true; // Continue timer
-  }, [currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides]);
+  }, [currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides, sideStrategy]);
   
   // A more robust approach that uses closure variables instead of React state for timing logic
   // This avoids stale closure issues with React state updates
@@ -327,41 +392,86 @@ export function useTimer({
     console.log(`Current set: ${currentSet}/${sets} (before skip)`);
     console.log(`Current side: ${currentSide || 'none'}`);
     console.log(`isResting: ${isResting}`);
+    console.log(`Side strategy: ${sideStrategy}`);
     console.log(`------------------------------`);
     
-    // Skip directly to the next set, bypassing rest and side changes
-    if (currentSet < sets) {
-      // Update to the next set with consistent state
-      setCurrentSet(prev => prev + 1);
-      if (sides) setCurrentSide('left');
-      setTimeRemaining(duration);
-      setIsResting(false);
-      
-      // Trigger callback if provided
-      if (onSetComplete) onSetComplete(currentSet);
-      
-      // Short delay to ensure state updates before proceeding
-      setTimeout(() => {
-        console.log(`Now on set ${currentSet + 1}/${sets}`);
-        console.log(`isResting reset to: ${isResting}`);
-        
-        if (state === 'running') {
-          console.log(`Starting new set timer`);
-          startTimer();
+    if (sides && sideStrategy === 'sequential') {
+      // For sequential strategy with sides, handle specially
+      if (currentSide === 'left') {
+        if (currentSet < sets) {
+          // Move to next set on left side
+          setCurrentSet(prev => prev + 1);
+          setTimeRemaining(duration);
+          setIsResting(false);
+          console.log(`Moving to set ${currentSet + 1}/${sets} (still on left side)`);
+          
+          if (onSetComplete) onSetComplete(currentSet);
         } else {
-          // If we were paused, stay paused but update the display
-          console.log(`Pausing on new set`);
-          setState('paused');
-          pausedTimeRef.current = duration;
+          // Completed all sets on left side, switch to right side, set 1
+          setCurrentSet(1);
+          setCurrentSide('right');
+          setTimeRemaining(duration);
+          setIsResting(false);
+          console.log(`All left side sets complete, switching to right side set 1`);
+          
+          if (onSideChange) onSideChange();
         }
-      }, 100);
+      } else if (currentSide === 'right') {
+        if (currentSet < sets) {
+          // Move to next set on right side
+          setCurrentSet(prev => prev + 1);
+          setTimeRemaining(duration);
+          setIsResting(false);
+          console.log(`Moving to set ${currentSet + 1}/${sets} (still on right side)`);
+          
+          if (onSetComplete) onSetComplete(currentSet);
+        } else {
+          // All sets complete on both sides
+          console.log(`All sets complete on both sides!`);
+          setState('completed');
+          if (onComplete) onComplete();
+          return; // Exit early
+        }
+      }
     } else {
-      // All sets complete
-      console.log(`All sets complete!`);
-      setState('completed');
-      if (onComplete) onComplete();
+      // Standard set skipping logic for alternate strategy or no sides
+      if (currentSet < sets) {
+        // Update to the next set with consistent state
+        setCurrentSet(prev => prev + 1);
+        if (sides) setCurrentSide('left');
+        setTimeRemaining(duration);
+        setIsResting(false);
+        
+        // Trigger callback if provided
+        if (onSetComplete) onSetComplete(currentSet);
+        
+        console.log(`Moving to set ${currentSet + 1}/${sets} (standard/alternate)`);
+      } else {
+        // All sets complete
+        console.log(`All sets complete!`);
+        setState('completed');
+        if (onComplete) onComplete();
+        return; // Exit early
+      }
     }
-  }, [clearTimer, currentSet, duration, isResting, onComplete, onSetComplete, sets, sides, startTimer, state]);
+    
+    // Short delay to ensure state updates before proceeding
+    setTimeout(() => {
+      console.log(`Now on set ${currentSet + 1 <= sets ? currentSet + 1 : currentSet}/${sets}`);
+      console.log(`Current side: ${currentSide}`);
+      console.log(`isResting reset to: ${isResting}`);
+      
+      if (state === 'running') {
+        console.log(`Starting new set timer`);
+        startTimer();
+      } else {
+        // If we were paused, stay paused but update the display
+        console.log(`Pausing on new set`);
+        setState('paused');
+        pausedTimeRef.current = duration;
+      }
+    }, 100);
+  }, [clearTimer, currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, sets, sides, sideStrategy, startTimer, state]);
   
   return {
     timeRemaining,
