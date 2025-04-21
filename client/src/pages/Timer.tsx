@@ -163,12 +163,14 @@ export default function Timer() {
             value={timer.percentRemaining}
             size={256}
             strokeWidth={10}
-            className="mb-4"
+            className={`mb-4 ${timer.isResting ? 'text-green-500' : 'text-blue-500'}`}
           >
             <span className="text-6xl font-bold">
               {formatTime(timer.timeRemaining)}
             </span>
-            <span className="text-gray-600 mt-2">seconds remaining</span>
+            <span className="text-gray-600 mt-2">
+              {timer.isResting ? 'REST PERIOD' : 'EXERCISE PERIOD'}
+            </span>
           </CircularProgress>
           
           <div className="text-center mt-4">

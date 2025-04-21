@@ -96,15 +96,13 @@ export function useTimer({
       From: ${wasResting ? 'Rest' : 'Exercise'} period
       Current set: ${currentSetCopy}/${sets}
       Current side: ${currentSideCopy}
-      isResting value: ${isResting}
+      isResting value: ${wasResting ? 'true' : 'false'}
       Side strategy: ${sideStrategy}`);
     
     // If we were doing a rest period, now start the next exercise period
     if (wasResting) {
       // Coming from rest period, move to the next exercise period
-      setIsResting(false);
-      setTimeRemaining(duration);
-      
+      // Move to next set or side as needed
       if (sides) {
         // Handle sides according to strategy
         if (sideStrategy === 'alternate') {
@@ -176,21 +174,25 @@ export function useTimer({
           return false; // Don't continue timer
         }
       }
+      
+      // Always set next exercise mode after rest
+      setIsResting(false);
+      setTimeRemaining(duration);
+      console.log('Setting to EXERCISE mode after rest completion');
+      
     } else {
       // Coming from exercise period, move to rest period
       console.log('Moving to rest period');
       setTimeRemaining(restDuration); // Use rest duration
       setIsResting(true);
+      console.log('Setting to REST mode after exercise completion');
     }
     
     // Always update the start time for the next phase
-    // Add a small delay to ensure state updates are processed
-    setTimeout(() => {
-      console.log(`After state update - isResting is now: ${isResting ? 'REST' : 'EXERCISE'}`);
-    }, 100);
-    
     startTimeRef.current = Date.now();
-    return true; // Continue timer
+    
+    // Important - need to return true to continue
+    return true;
   }, [currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides, sideStrategy]);
   
   // A more robust approach that uses closure variables instead of React state for timing logic
@@ -199,9 +201,17 @@ export function useTimer({
     // Clear any existing timers first
     clearTimer();
     
-    // CRITICAL: Capture the current phase state at the moment we're starting the timer
-    // This ensures we don't have stale state issues with the isResting value
-    const phaseIsRest = isResting;
+    // CRITICAL: We need to force the state to be synchronized here
+    // The current issue is the React state (isResting) isn't updating properly
+    // Let's log the value to help debugging
+    console.log(`------------------------------`);
+    console.log(`STATE CHECK BEFORE TIMER START`);
+    console.log(`isResting state value: ${isResting}`);
+    console.log(`currentSet: ${currentSet}, currentSide: ${currentSide}`);
+    console.log(`------------------------------`);
+    
+    // For consistency throughout the timer duration, we capture the phase state
+    const phaseIsRest = isResting; 
     const phaseDuration = phaseIsRest ? restDuration : duration;
     const phaseLabel = phaseIsRest ? 'REST' : 'EXERCISE';
     
