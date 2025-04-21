@@ -1,12 +1,19 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import { useExercise, useRecordExerciseProgress } from '@/hooks/use-exercises';
-import { useTimer } from '@/hooks/use-timer';
+import { useTimer, SideStrategy } from '@/hooks/use-timer';
 import { CircularProgress } from '@/components/ui/circular-progress';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
 import { formatTime } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function Timer() {
   const { toast } = useToast();
@@ -15,6 +22,7 @@ export default function Timer() {
   const exerciseId = match ? parseInt(params.id) : null;
   const { data: exercise, isLoading, isError } = useExercise(exerciseId);
   const recordProgress = useRecordExerciseProgress();
+  const [sideStrategy, setSideStrategy] = useState<SideStrategy>('alternate');
 
   const handleExerciseComplete = () => {
     if (exercise) {
@@ -38,6 +46,7 @@ export default function Timer() {
     restDuration: exercise?.restTime || 30,
     sets: exercise?.sets || 1,
     sides: exercise?.isPaired || false,
+    sideStrategy: sideStrategy,
     onComplete: handleExerciseComplete,
     onSetComplete: (set) => {
       toast({
@@ -55,7 +64,11 @@ export default function Timer() {
 
   useEffect(() => {
     if (exercise && timer.state === 'inactive') {
-      timer.start();
+      // Only auto-start for exercises without sides
+      // For exercises with sides, user will use the Start button after selecting strategy
+      if (!exercise.isPaired) {
+        timer.start();
+      }
     }
   }, [exercise, timer]);
 
@@ -102,6 +115,36 @@ export default function Timer() {
           <p className="text-white/80 mt-1">
             {getSideLabel()} • Set {timer.currentSet} of {timer.totalSets}
           </p>
+          
+          {/* Side Strategy Selection - only shown for exercises with sides */}
+          {exercise.isPaired && timer.state === 'inactive' && (
+            <div className="mt-4 bg-white/10 p-3 rounded-lg">
+              <div className="text-sm mb-2 text-white/80">How do you want to perform sides?</div>
+              <Select
+                value={sideStrategy}
+                onValueChange={(value: SideStrategy) => setSideStrategy(value)}
+              >
+                <SelectTrigger className="bg-white/20 border-none text-white">
+                  <SelectValue placeholder="Side Strategy" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="alternate">
+                    Alternate Sides (L-R-L-R)
+                  </SelectItem>
+                  <SelectItem value="sequential">
+                    All Sets on One Side First (L-L-L, then R-R-R)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <Button 
+                className="w-full mt-3 bg-white text-primary hover:bg-white/90"
+                onClick={() => timer.start()}
+              >
+                Start Exercise
+              </Button>
+            </div>
+          )}
         </div>
       </div>
 
