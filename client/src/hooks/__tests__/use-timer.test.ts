@@ -1,5 +1,5 @@
 import { describe, test, expect, beforeEach, vi, afterEach } from 'vitest';
-import { renderHook } from '@testing-library/react';
+import { renderHook, act } from '@testing-library/react';
 import { useTimer } from '../use-timer';
 
 // Mock the window.setInterval and clearInterval functions
@@ -7,19 +7,23 @@ vi.useFakeTimers();
 
 describe('useTimer', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
-    jest.clearAllTimers();
+    vi.clearAllMocks();
+    vi.clearAllTimers();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   // Helper function to advance timers by a specific amount
   const advanceTimersByTime = (ms: number) => {
     act(() => {
-      jest.advanceTimersByTime(ms);
+      vi.advanceTimersByTime(ms);
     });
   };
 
   test('should initialize with correct values', () => {
-    const onComplete = jest.fn();
+    const onComplete = vi.fn();
     const { result } = renderHook(() => 
       useTimer({ 
         duration: 10, 
@@ -126,7 +130,7 @@ describe('useTimer', () => {
   });
 
   test('should call onComplete when all sets are done', () => {
-    const onComplete = jest.fn();
+    const onComplete = vi.fn();
     const { result } = renderHook(() => 
       useTimer({ 
         duration: 2, 
@@ -256,7 +260,7 @@ describe('useTimer', () => {
   });
 
   test('should handle sides correctly for exercises with sides', () => {
-    const onSideChange = jest.fn();
+    const onSideChange = vi.fn();
     const { result } = renderHook(() => 
       useTimer({ 
         duration: 3, 
