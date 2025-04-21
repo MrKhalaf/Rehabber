@@ -166,31 +166,24 @@ export default function Timer() {
             </Button>
           )}
           
-          {timer.isResting ? (
-            <Button 
-              className="flex-1 py-4 h-auto bg-green-600 hover:bg-green-700"
-              onClick={timer.skip}
-            >
-              Skip Rest
-            </Button>
-          ) : (
-            <Button 
-              className="flex-1 py-4 h-auto"
-              onClick={timer.skip}
-            >
-              {exercise.type === 'hold' ? 'Complete Hold' : 'Complete Reps'}
-            </Button>
-          )}
+          <Button 
+            className={`flex-1 py-4 h-auto ${timer.isResting ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+            onClick={timer.skip}
+          >
+            {timer.isResting ? 'Skip Rest' : (exercise.type === 'hold' ? 'Complete Hold' : 'Complete Reps')}
+          </Button>
         </div>
         
         {/* Next Set Button */}
         <div className="w-full mt-4">
           <Button 
             variant="outline"
-            className="w-full py-4 h-auto border-dashed"
+            className="w-full py-4 h-auto border-dashed text-gray-600"
             onClick={timer.nextSet}
           >
-            Skip to Next Set
+            {timer.currentSet < timer.totalSets ? 
+              `Skip to Set ${timer.currentSet + 1}/${timer.totalSets}` : 
+              'Complete All Sets'}
           </Button>
         </div>
       </div>
