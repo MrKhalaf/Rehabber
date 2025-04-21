@@ -86,7 +86,8 @@ export function useTimer({
     console.log(`Timer state transition:
       From: ${wasResting ? 'Rest' : 'Exercise'} period
       Current set: ${currentSetCopy}/${sets}
-      Current side: ${currentSideCopy}`);
+      Current side: ${currentSideCopy}
+      isResting value: ${isResting}`);
     
     if (wasResting) {
       // Coming from rest period, move to exercise period
@@ -123,55 +124,74 @@ export function useTimer({
     }
     
     // Always update the start time for the next phase
+    // Add a small delay to ensure state updates are processed
+    setTimeout(() => {
+      console.log(`After state update - isResting is now: ${isResting}`);
+    }, 100);
+    
     startTimeRef.current = Date.now();
     return true; // Continue timer
   }, [currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides]);
   
+  // A more robust approach that uses closure variables instead of React state for timing logic
+  // This avoids stale closure issues with React state updates
   const startTimer = useCallback(() => {
     // Clear any existing timers first
     clearTimer();
     
-    // Set the start time reference and update state
+    // CRITICAL: Capture the current phase state at the moment we're starting the timer
+    // This ensures we don't have stale state issues with the isResting value
+    const phaseIsRest = isResting;
+    const phaseDuration = phaseIsRest ? restDuration : duration;
+    const phaseLabel = phaseIsRest ? 'REST' : 'EXERCISE';
+    
+    console.log(`------------------------------`);
+    console.log(`STARTING ${phaseLabel} TIMER`);
+    console.log(`Duration: ${phaseDuration} seconds`);
+    console.log(`isResting: ${phaseIsRest}`);
+    console.log(`Set ${currentSet}/${sets}, Side: ${currentSide || 'none'}`);
+    console.log(`------------------------------`);
+    
+    // Set the start time reference and update timer state
     startTimeRef.current = Date.now();
     setState('running');
     
-    console.log(`Starting timer: ${isResting ? 'REST' : 'EXERCISE'} phase`);
-    console.log(`Duration: ${isResting ? restDuration : duration} seconds`);
+    // Initialize the time remaining
+    setTimeRemaining(phaseDuration);
     
-    // Set up the timer interval
+    // Set up the timer interval - use the CAPTURED phase variables in the interval
     timerRef.current = window.setInterval(() => {
-      // Calculate elapsed time and remaining time
+      // Calculate elapsed and remaining time based on the FIXED phase duration
       const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      const remainingTime = Math.max(0, phaseDuration - elapsedSeconds);
       
-      // CRITICAL: Capture the current isResting state to determine which duration to use
-      // This ensures we're consistent within this timer tick
-      const isRestingNow = isResting;
-      const currentDuration = isRestingNow ? restDuration : duration;
-      const newTime = Math.max(0, currentDuration - elapsedSeconds);
+      // Update the displayed time
+      setTimeRemaining(remainingTime);
       
-      if (newTime <= 0) {
-        // Timer reached zero, stop the current timer
+      // Check if timer has completed
+      if (remainingTime <= 0) {
+        // Timer reached zero, stop the timer
         clearTimer();
-        console.log(`Timer complete for ${isRestingNow ? 'REST' : 'EXERCISE'} phase`);
         
-        // Move to the next phase (exercise -> rest, rest -> exercise, or complete)
-        const shouldContinue = proceedToNext();
+        console.log(`${phaseLabel} timer complete!`);
         
-        if (shouldContinue) {
-          // Add a short delay before starting the next phase
-          // This gives the user time to see that the current phase is complete
-          setPromptTimeout(() => {
-            // Start the next phase timer
-            console.log('Starting next phase timer');
-            startTimer();
-          }, 500);
-        }
-      } else {
-        // Update the displayed time
-        setTimeRemaining(newTime);
+        // Process the next phase with a short delay to allow for UI updates
+        setPromptTimeout(() => {
+          // Move to the next phase using the proceedToNext function
+          // which will handle setting the next isResting state appropriately
+          const shouldContinue = proceedToNext();
+          
+          if (shouldContinue) {
+            console.log(`Moving to next phase`);
+            // Wait for React state to update before starting the next timer
+            setTimeout(() => {
+              startTimer();
+            }, 100);
+          }
+        }, 300);
       }
     }, 100); // Update frequently for smooth countdown
-  }, [clearTimer, duration, isResting, proceedToNext, restDuration, setPromptTimeout]);
+  }, [clearTimer, currentSet, currentSide, duration, isResting, proceedToNext, restDuration, setPromptTimeout, sets]);
   
   // Stop timer when component unmounts
   useEffect(() => {
@@ -199,47 +219,54 @@ export function useTimer({
   // Resume the timer
   const resume = useCallback(() => {
     if (state === 'paused') {
-      console.log(`Resuming timer: ${isResting ? 'REST' : 'EXERCISE'} phase`);
-      console.log(`Time remaining: ${pausedTimeRef.current} seconds`);
+      // Capture current phase for consistent handling
+      const phaseIsRest = isResting;
+      const phaseLabel = phaseIsRest ? 'REST' : 'EXERCISE';
+      const remainingTime = pausedTimeRef.current;
+      
+      console.log(`------------------------------`);
+      console.log(`RESUMING ${phaseLabel} TIMER`);
+      console.log(`Time remaining: ${remainingTime} seconds`);
+      console.log(`isResting: ${phaseIsRest}`);
+      console.log(`Set ${currentSet}/${sets}, Side: ${currentSide || 'none'}`);
+      console.log(`------------------------------`);
       
       // Adjust start time to account for already elapsed time
-      const currentDuration = isResting ? restDuration : duration;
-      startTimeRef.current = Date.now() - (currentDuration - pausedTimeRef.current) * 1000;
+      startTimeRef.current = Date.now() - ((phaseIsRest ? restDuration : duration) - remainingTime) * 1000;
       setState('running');
       
-      // Instead of duplicating timer logic here, just call startTimer
-      // But first set timeRemaining to pick up from where we left off
-      setTimeRemaining(pausedTimeRef.current);
-      
-      // Use the main timer implementation
+      // Set up the timer interval - use the CAPTURED phase variables in the interval
       timerRef.current = window.setInterval(() => {
-        // Calculate elapsed time and remaining time
+        // Calculate elapsed time based on our adjusted start time
         const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        
-        // CRITICAL: Capture the current isResting state to determine which duration to use
-        const isRestingNow = isResting;
-        const currentDuration = isRestingNow ? restDuration : duration;
+        const currentDuration = phaseIsRest ? restDuration : duration;
         const newTime = Math.max(0, currentDuration - elapsedSeconds);
         
+        // Update the displayed time
+        setTimeRemaining(newTime);
+        
+        // Check if timer has completed
         if (newTime <= 0) {
-          // Timer reached zero
+          // Timer reached zero, stop the timer
           clearTimer();
-          console.log(`Timer complete for ${isRestingNow ? 'REST' : 'EXERCISE'} phase`);
           
-          // Move to next phase
-          const shouldContinue = proceedToNext();
-          if (shouldContinue) {
-            setPromptTimeout(() => {
-              console.log('Starting next phase timer after resume');
-              startTimer();
-            }, 500);
-          }
-        } else {
-          setTimeRemaining(newTime);
+          console.log(`${phaseLabel} timer complete after resume!`);
+          
+          // Process the next phase
+          setPromptTimeout(() => {
+            const shouldContinue = proceedToNext();
+            
+            if (shouldContinue) {
+              // Wait for React state to update before starting the next timer
+              setTimeout(() => {
+                startTimer();
+              }, 100);
+            }
+          }, 300);
         }
       }, 100);
     }
-  }, [clearTimer, duration, isResting, proceedToNext, restDuration, setPromptTimeout, startTimer, state]);
+  }, [clearTimer, currentSet, currentSide, duration, isResting, proceedToNext, restDuration, setPromptTimeout, sets, startTimer, state]);
   
   // Reset the timer
   const reset = useCallback(() => {
@@ -256,18 +283,38 @@ export function useTimer({
     if (state !== 'running' && state !== 'paused') return;
     
     clearTimer();
+    
+    console.log(`------------------------------`);
+    console.log(`MANUALLY SKIPPING CURRENT PHASE`);
+    console.log(`Current set: ${currentSet}/${sets}`);
+    console.log(`Current side: ${currentSide || 'none'}`);
+    console.log(`isResting before skip: ${isResting}`);
+    console.log(`------------------------------`);
+    
+    // Process the next phase
     const shouldContinue = proceedToNext();
     
-    if (shouldContinue && state === 'running') {
-      // Start the timer with the updated isResting state
-      startTimer();
-    } else if (shouldContinue && state === 'paused') {
-      // If we were paused, stay paused but update the display
-      setState('paused');
-      // Make sure we're using the UPDATED isResting state after calling proceedToNext
-      pausedTimeRef.current = isResting ? restDuration : duration;
+    if (shouldContinue) {
+      if (state === 'running') {
+        // Wait for React state to update before starting the next timer
+        setTimeout(() => {
+          console.log(`Starting next phase after skip`);
+          console.log(`isResting after skip: ${isResting}`);
+          startTimer();
+        }, 100);
+      } else if (state === 'paused') {
+        // If we were paused, stay paused but update the display
+        setState('paused');
+        
+        // Wait for the state update to complete then set the appropriate pause time
+        setTimeout(() => {
+          console.log(`Pausing on new phase after skip`);
+          console.log(`isResting after skip: ${isResting}`);
+          pausedTimeRef.current = isResting ? restDuration : duration;
+        }, 100);
+      }
     }
-  }, [clearTimer, isResting, duration, proceedToNext, restDuration, startTimer, state]);
+  }, [clearTimer, currentSet, currentSide, duration, isResting, proceedToNext, restDuration, sets, startTimer, state]);
   
   // Skip to next set directly
   const nextSet = useCallback(() => {
@@ -275,27 +322,46 @@ export function useTimer({
     
     clearTimer();
     
+    console.log(`------------------------------`);
+    console.log(`MANUALLY SKIPPING TO NEXT SET`);
+    console.log(`Current set: ${currentSet}/${sets} (before skip)`);
+    console.log(`Current side: ${currentSide || 'none'}`);
+    console.log(`isResting: ${isResting}`);
+    console.log(`------------------------------`);
+    
     // Skip directly to the next set, bypassing rest and side changes
     if (currentSet < sets) {
+      // Update to the next set with consistent state
       setCurrentSet(prev => prev + 1);
       if (sides) setCurrentSide('left');
       setTimeRemaining(duration);
       setIsResting(false);
+      
+      // Trigger callback if provided
       if (onSetComplete) onSetComplete(currentSet);
       
-      if (state === 'running') {
-        startTimer();
-      } else {
-        // If we were paused, stay paused but update the display
-        setState('paused');
-        pausedTimeRef.current = duration;
-      }
+      // Short delay to ensure state updates before proceeding
+      setTimeout(() => {
+        console.log(`Now on set ${currentSet + 1}/${sets}`);
+        console.log(`isResting reset to: ${isResting}`);
+        
+        if (state === 'running') {
+          console.log(`Starting new set timer`);
+          startTimer();
+        } else {
+          // If we were paused, stay paused but update the display
+          console.log(`Pausing on new set`);
+          setState('paused');
+          pausedTimeRef.current = duration;
+        }
+      }, 100);
     } else {
       // All sets complete
+      console.log(`All sets complete!`);
       setState('completed');
       if (onComplete) onComplete();
     }
-  }, [clearTimer, currentSet, duration, onComplete, onSetComplete, sets, sides, startTimer, state]);
+  }, [clearTimer, currentSet, duration, isResting, onComplete, onSetComplete, sets, sides, startTimer, state]);
   
   return {
     timeRemaining,
