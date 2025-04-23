@@ -86,9 +86,10 @@ export function useTimer({
   
   // Function to proceed to next activity (exercise, rest, side, or set)
   const proceedToNext = useCallback(() => {
-    // IMPORTANT: We need to capture current state before making changes
-    // since the updates might not be immediately reflected
-    const wasResting = isResting;
+    // Use our reference value to determine the current phase,
+    // which ensures we're always working with the correct value
+    const currentPhase = currentPhaseRef.current;
+    const wasResting = currentPhase === 'rest';
     const currentSideCopy = currentSide;
     const currentSetCopy = currentSet;
     
@@ -96,7 +97,7 @@ export function useTimer({
       From: ${wasResting ? 'Rest' : 'Exercise'} period
       Current set: ${currentSetCopy}/${sets}
       Current side: ${currentSideCopy}
-      isResting value: ${wasResting ? 'true' : 'false'}
+      currentPhase value: ${currentPhase}
       Side strategy: ${sideStrategy}`);
     
     // If we were doing a rest period, now start the next exercise period
@@ -175,7 +176,8 @@ export function useTimer({
         }
       }
       
-      // Always set next exercise mode after rest
+      // Always switch from rest to exercise mode
+      currentPhaseRef.current = 'exercise';
       setIsResting(false);
       setTimeRemaining(duration);
       console.log('Setting to EXERCISE mode after rest completion');
@@ -184,6 +186,7 @@ export function useTimer({
       // Coming from exercise period, move to rest period
       console.log('Moving to rest period');
       setTimeRemaining(restDuration); // Use rest duration
+      currentPhaseRef.current = 'rest';
       setIsResting(true);
       console.log('Setting to REST mode after exercise completion');
     }
@@ -195,23 +198,30 @@ export function useTimer({
     return true;
   }, [currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides, sideStrategy]);
   
+  // Use a reference to track the current phase to avoid React state timing issues
+  const currentPhaseRef = useRef<'rest' | 'exercise'>('exercise');
+  
   // A more robust approach that uses closure variables instead of React state for timing logic
   // This avoids stale closure issues with React state updates
   const startTimer = useCallback(() => {
     // Clear any existing timers first
     clearTimer();
     
-    // CRITICAL: We need to force the state to be synchronized here
-    // The current issue is the React state (isResting) isn't updating properly
-    // Let's log the value to help debugging
+    // CRITICAL: The issue is with React state updates not being immediately reflected
+    // We'll use our direct reference to determine the current phase
     console.log(`------------------------------`);
     console.log(`STATE CHECK BEFORE TIMER START`);
     console.log(`isResting state value: ${isResting}`);
+    console.log(`currentPhaseRef value: ${currentPhaseRef.current}`);
     console.log(`currentSet: ${currentSet}, currentSide: ${currentSide}`);
     console.log(`------------------------------`);
     
-    // For consistency throughout the timer duration, we capture the phase state
-    const phaseIsRest = isResting; 
+    // Use our reference instead of React state to determine the phase
+    // This ensures consistency regardless of React's state update timing
+    const phaseIsRest = currentPhaseRef.current === 'rest';
+    // Also update the React state to match our reference
+    setIsResting(phaseIsRest);
+    
     const phaseDuration = phaseIsRest ? restDuration : duration;
     const phaseLabel = phaseIsRest ? 'REST' : 'EXERCISE';
     
@@ -274,6 +284,8 @@ export function useTimer({
     setCurrentSet(1);
     setCurrentSide(sides ? 'left' : null);
     setIsResting(false);
+    // Reset our phase reference to the beginning (exercise mode)
+    currentPhaseRef.current = 'exercise';
     startTimer();
   }, [duration, sides, startTimer]);
   
@@ -345,6 +357,7 @@ export function useTimer({
     setCurrentSet(1);
     setCurrentSide(sides ? 'left' : null);
     setIsResting(false);
+    currentPhaseRef.current = 'exercise';
     setState('inactive');
   }, [clearTimer, duration, sides]);
   
@@ -412,6 +425,7 @@ export function useTimer({
           setCurrentSet(prev => prev + 1);
           setTimeRemaining(duration);
           setIsResting(false);
+          currentPhaseRef.current = 'exercise';
           console.log(`Moving to set ${currentSet + 1}/${sets} (still on left side)`);
           
           if (onSetComplete) onSetComplete(currentSet);
@@ -431,6 +445,7 @@ export function useTimer({
           setCurrentSet(prev => prev + 1);
           setTimeRemaining(duration);
           setIsResting(false);
+          currentPhaseRef.current = 'exercise';
           console.log(`Moving to set ${currentSet + 1}/${sets} (still on right side)`);
           
           if (onSetComplete) onSetComplete(currentSet);
@@ -450,6 +465,7 @@ export function useTimer({
         if (sides) setCurrentSide('left');
         setTimeRemaining(duration);
         setIsResting(false);
+        currentPhaseRef.current = 'exercise';
         
         // Trigger callback if provided
         if (onSetComplete) onSetComplete(currentSet);
