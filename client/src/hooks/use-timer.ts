@@ -112,6 +112,9 @@ export function useTimer({
             // Switch to right side for current set
             console.log('Switching to right side (alternate strategy)');
             setCurrentSide('right');
+            // Reset to exercise phase when switching sides in alternate strategy too
+            currentPhaseRef.current = 'exercise';
+            console.log(`Phase set to: ${currentPhaseRef.current} for right side`);
             if (onSideChange) onSideChange();
           } else {
             // We've completed both sides of the current set
@@ -120,6 +123,9 @@ export function useTimer({
               console.log(`Moving to set ${currentSetCopy + 1} (alternate strategy)`);
               setCurrentSet(prev => prev + 1);
               setCurrentSide('left');
+              // Reset to exercise phase when moving to the next set
+              currentPhaseRef.current = 'exercise';
+              console.log(`Phase set to: ${currentPhaseRef.current} for next set`);
               if (onSetComplete) onSetComplete(currentSetCopy);
             } else {
               // All sets and sides complete
@@ -136,12 +142,17 @@ export function useTimer({
               // Move to next set, still on left side
               console.log(`Moving to set ${currentSetCopy + 1} (sequential strategy, left side)`);
               setCurrentSet(prev => prev + 1);
+              // Reset to exercise phase when moving to next set on left side
+              currentPhaseRef.current = 'exercise';
+              console.log(`Phase set to: ${currentPhaseRef.current} for next set on left side`);
               if (onSetComplete) onSetComplete(currentSetCopy);
             } else {
               // All sets on left side complete, switch to right side set 1
               console.log('Switching to right side, set 1 (sequential strategy)');
               setCurrentSet(1);
               setCurrentSide('right');
+              // Make sure we reset to exercise phase when switching sides
+              currentPhaseRef.current = 'exercise';
               if (onSideChange) onSideChange();
             }
           } else {
@@ -166,6 +177,9 @@ export function useTimer({
           // Move to next set
           console.log(`Moving to set ${currentSetCopy + 1} (no sides)`);
           setCurrentSet(prev => prev + 1);
+          // Reset to exercise phase when moving to the next set (no sides)
+          currentPhaseRef.current = 'exercise';
+          console.log(`Phase set to: ${currentPhaseRef.current} for next set (no sides)`);
           if (onSetComplete) onSetComplete(currentSetCopy);
         } else {
           // All sets complete
@@ -435,6 +449,7 @@ export function useTimer({
           setCurrentSide('right');
           setTimeRemaining(duration);
           setIsResting(false);
+          currentPhaseRef.current = 'exercise';
           console.log(`All left side sets complete, switching to right side set 1`);
           
           if (onSideChange) onSideChange();
