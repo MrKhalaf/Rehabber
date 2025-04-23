@@ -93,12 +93,14 @@ export function useTimer({
     const currentSideCopy = currentSide;
     const currentSetCopy = currentSet;
     
-    console.log(`Timer state transition:
-      From: ${wasResting ? 'Rest' : 'Exercise'} period
-      Current set: ${currentSetCopy}/${sets}
-      Current side: ${currentSideCopy}
-      currentPhase value: ${currentPhase}
-      Side strategy: ${sideStrategy}`);
+    console.log(`----- TIMER STATE TRANSITION -----`);
+    console.log(`From: ${wasResting ? 'Rest' : 'Exercise'} period`);
+    console.log(`Current set: ${currentSetCopy}/${sets}`);
+    console.log(`Current side: ${currentSideCopy}`);
+    console.log(`Current phase value: ${currentPhase}`);
+    console.log(`Side strategy: ${sideStrategy}`);
+    console.log(`Moving to: ${wasResting ? 'Exercise' : 'Rest'} period`);
+    console.log(`----------------------------------`);
     
     // If we were doing a rest period, now start the next exercise period
     if (wasResting) {
@@ -161,6 +163,9 @@ export function useTimer({
               // Move to next set on right side
               console.log(`Moving to set ${currentSetCopy + 1} (sequential strategy, right side)`);
               setCurrentSet(prev => prev + 1);
+              // Reset to exercise phase when moving to next set on right side
+              currentPhaseRef.current = 'exercise';
+              console.log(`Phase set to: ${currentPhaseRef.current} for next set on right side`);
               if (onSetComplete) onSetComplete(currentSetCopy);
             } else {
               // All sets on both sides complete
