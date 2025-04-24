@@ -11,10 +11,34 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { useSettings } from '@/contexts/SettingsContext';
 
-import UserPreferencesTab from './UserPreferencesTab';
-import ExerciseDisplayTab from './ExerciseDisplayTab';
-import TimerSettingsTab from './TimerSettingsTab';
-import HistorySettingsTab from './HistorySettingsTab';
+// Directly embed the tabs for now
+const UserPreferencesTab = () => (
+  <div className="p-4">
+    <h3 className="text-lg font-medium mb-2">User Preferences</h3>
+    <p>Reset time, theme, and notifications settings will appear here.</p>
+  </div>
+);
+
+const ExerciseDisplayTab = () => (
+  <div className="p-4">
+    <h3 className="text-lg font-medium mb-2">Exercise Display</h3>
+    <p>Filtering, sorting, and view settings will appear here.</p>
+  </div>
+);
+
+const TimerSettingsTab = () => (
+  <div className="p-4">
+    <h3 className="text-lg font-medium mb-2">Timer Settings</h3>
+    <p>Rest period, sounds, and side strategy settings will appear here.</p>
+  </div>
+);
+
+const HistorySettingsTab = () => (
+  <div className="p-4">
+    <h3 className="text-lg font-medium mb-2">History Settings</h3>
+    <p>Date range and display settings will appear here.</p>
+  </div>
+);
 
 interface SettingsPanelProps {
   className?: string;

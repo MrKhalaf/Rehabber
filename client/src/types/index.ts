@@ -1,13 +1,24 @@
 import { 
-  Category, Exercise, ExerciseLog, RecommendedVideo, PtNote, User
+  Exercise, User
 } from "@shared/schema";
 
-export type TabType = 'exercises' | 'progress' | 'notes';
-export type NavigationTab = TabType | 'routines' | 'profile';
+export type TabType = 'exercises' | 'progress' | 'history';
+export type NavigationTab = 'exercises' | 'progress' | 'history' | 'routines' | 'profile';
+
+export enum ExerciseStatus {
+  TODO = 'todo',
+  IN_PROGRESS = 'in-progress',
+  COMPLETED = 'completed'
+}
 
 export interface ExerciseWithStatus extends Exercise {
   isComplete: boolean;
   completedAt?: Date | null;
+}
+
+export interface Category {
+  id: string;
+  name: string;
 }
 
 export interface CategoryWithProgress extends Category {
