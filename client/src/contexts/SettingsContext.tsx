@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-// Define all the settings types
 export interface UserSettings {
   // User Preferences
   resetTimeHour: number; // Hour of day when workouts reset (0-23)
@@ -24,16 +23,15 @@ export interface UserSettings {
   historyView: 'daily' | 'weekly' | 'monthly';
 }
 
-// Default settings
 const defaultSettings: UserSettings = {
   // User Preferences
-  resetTimeHour: 4, // 4 AM by default
+  resetTimeHour: 4, // 4 AM
   theme: 'system',
   enableReminders: false,
-  reminderTime: "09:00",
+  reminderTime: "18:00", // 6 PM
   
   // Exercise Display Settings
-  filterCategory: null, // no filter
+  filterCategory: null,
   sortBy: 'category',
   hideCompleted: false,
   
@@ -56,27 +54,32 @@ type SettingsContextType = {
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
+const SETTINGS_STORAGE_KEY = 'rehab-workout-settings';
+
 export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize settings from localStorage or use defaults
   const [settings, setSettings] = useState<UserSettings>(() => {
-    const savedSettings = localStorage.getItem('rehabber-settings');
-    return savedSettings ? JSON.parse(savedSettings) : defaultSettings;
+    // Load settings from localStorage on initial render
+    const savedSettings = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (savedSettings) {
+      try {
+        return { ...defaultSettings, ...JSON.parse(savedSettings) };
+      } catch (e) {
+        console.error('Failed to parse settings from localStorage', e);
+        return defaultSettings;
+      }
+    }
+    return defaultSettings;
   });
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
-    localStorage.setItem('rehabber-settings', JSON.stringify(settings));
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
 
-  // Function to update individual settings
   const updateSettings = (newSettings: Partial<UserSettings>) => {
-    setSettings(prev => ({
-      ...prev,
-      ...newSettings
-    }));
+    setSettings(prevSettings => ({ ...prevSettings, ...newSettings }));
   };
 
-  // Function to reset all settings to defaults
   const resetSettings = () => {
     setSettings(defaultSettings);
   };
@@ -88,7 +91,6 @@ export const SettingsProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   );
 };
 
-// Custom hook for accessing settings
 export const useSettings = (): SettingsContextType => {
   const context = useContext(SettingsContext);
   if (context === undefined) {

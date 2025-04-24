@@ -1,64 +1,58 @@
-import { useState } from 'react';
-import { Link, useLocation } from 'wouter';
-import { TabType } from '@/types';
-import { SettingsPanel } from '@/components/settings/SettingsPanel';
+import React from 'react';
+import { useLocation } from 'wouter';
+import { ChevronLeft, Settings } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { SettingsPanel } from './settings/SettingsPanel';
 
 interface HeaderProps {
   onOpenSettings?: () => void;
+  title?: string;
+  showBackButton?: boolean;
+  className?: string;
 }
 
-export function Header({ onOpenSettings }: HeaderProps) {
-  const [location] = useLocation();
-  const [activeTab, setActiveTab] = useState<TabType>(() => {
-    if (location === '/progress') return 'progress';
-    if (location === '/history') return 'history';
-    return 'exercises';
-  });
+export function Header({ 
+  onOpenSettings, 
+  title, 
+  showBackButton = false, 
+  className = '' 
+}: HeaderProps) {
+  const [location, setLocation] = useLocation();
+
+  const handleBack = () => {
+    if (location === '/') {
+      return; // Already at home
+    }
+    
+    // Handle special cases
+    if (location.includes('/exercise/')) {
+      setLocation('/exercises');
+      return;
+    }
+    
+    setLocation('/');
+  };
 
   return (
-    <header className="bg-white shadow-sm fixed w-full top-0 z-10">
-      <div className="px-4 py-3 flex justify-between items-center">
-        <h1 className="text-xl font-semibold text-primary-700">RehabRoutine</h1>
+    <header className={cn("flex items-center justify-between p-4 bg-background sticky top-0 z-10 border-b", className)}>
+      <div className="flex items-center">
+        {showBackButton && (
+          <button 
+            onClick={handleBack}
+            className="mr-2 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+          >
+            <ChevronLeft className="w-5 h-5" />
+            <span className="sr-only">Back</span>
+          </button>
+        )}
+        <h1 className="text-xl font-semibold">
+          {title || "Rehab Workouts"}
+        </h1>
+      </div>
+      
+      <div className="flex items-center">
         <SettingsPanel />
       </div>
-      <nav className="flex border-b border-secondary-200">
-        <Link href="/">
-          <a 
-            className={`flex-1 py-3 text-center ${
-              activeTab === 'exercises' 
-                ? 'text-primary-700 border-b-2 border-primary-600 font-medium' 
-                : 'text-secondary-500 hover:text-secondary-700'
-            }`}
-            onClick={() => setActiveTab('exercises')}
-          >
-            Exercises
-          </a>
-        </Link>
-        <Link href="/progress">
-          <a 
-            className={`flex-1 py-3 text-center ${
-              activeTab === 'progress' 
-                ? 'text-primary-700 border-b-2 border-primary-600 font-medium' 
-                : 'text-secondary-500 hover:text-secondary-700'
-            }`}
-            onClick={() => setActiveTab('progress')}
-          >
-            Progress
-          </a>
-        </Link>
-        <Link href="/history">
-          <a 
-            className={`flex-1 py-3 text-center ${
-              activeTab === 'history' 
-                ? 'text-primary-700 border-b-2 border-primary-600 font-medium' 
-                : 'text-secondary-500 hover:text-secondary-700'
-            }`}
-            onClick={() => setActiveTab('history')}
-          >
-            History
-          </a>
-        </Link>
-      </nav>
     </header>
   );
 }
