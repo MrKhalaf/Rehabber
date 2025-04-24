@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
-import { useExercises } from '@/hooks/use-exercises';
-import { ExerciseProgress } from '@shared/schema';
+import { useExercises, isExerciseCompletedToday } from '@/hooks/use-exercises';
 import { TabBar } from '@/components/TabBar';
 import { format, subDays } from 'date-fns';
 import { CheckCircle, Circle } from 'lucide-react';
@@ -19,7 +18,7 @@ type ExerciseHistoryDay = {
 export default function History() {
   const { data: exercises, isLoading } = useExercises();
   
-  // Create mock history data for the last 7 days
+  // Create history data for the last 7 days
   const historyDays = useMemo(() => {
     const days: ExerciseHistoryDay[] = [];
     const today = new Date();
@@ -32,8 +31,9 @@ export default function History() {
       const dayNumber = date.getDay();
       const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       
-      // Create a random completion pattern for demo purposes
-      // In a real app, this would come from actual progress data
+      // Use actual exercise progress data to determine completion for today only
+      // For historical days (before today), we'll show all exercises as incomplete
+      // since we don't have historical data yet
       days.push({
         date,
         formattedDate: format(date, 'MMM d'),
@@ -41,9 +41,8 @@ export default function History() {
         exercises: exercises.map(ex => ({
           id: ex.id,
           name: ex.name,
-          // For demo purposes, create some randomized completion data
-          // In reality, this would come from the database
-          completed: i < 2 ? Math.random() > 0.4 : Math.random() > 0.7,
+          // Only today can have completed exercises based on actual data
+          completed: i === 0 && isExerciseCompletedToday(ex),
         }))
       });
     }

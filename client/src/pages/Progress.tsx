@@ -3,12 +3,12 @@ import { useExercises, isExerciseCompletedToday } from '@/hooks/use-exercises';
 import { TabBar } from '@/components/TabBar';
 import { calculateProgress } from '@/lib/utils';
 import { Calendar, TrendingUp, Target, Award } from 'lucide-react';
-import { format, subDays, eachDayOfInterval, isToday } from 'date-fns';
+import { format, subDays, eachDayOfInterval, isToday, startOfDay, addHours } from 'date-fns';
 
 export default function Progress() {
   const { data: exercises, isLoading } = useExercises();
   
-  // Calculate completion rate
+  // Calculate completion rate using actual exercise data
   const stats = useMemo(() => {
     if (!exercises || exercises.length === 0) {
       return {
@@ -20,30 +20,33 @@ export default function Progress() {
       };
     }
     
-    // For demo, create a simulated completion history for the last 7 days
+    // Count exercises completed today using the isExerciseCompletedToday helper
+    const completedToday = exercises.filter(exercise => 
+      isExerciseCompletedToday(exercise)
+    ).length;
+    
+    // Calculate completion rate as a percentage
+    const completionRate = calculateProgress(completedToday, exercises.length);
+    
+    // Create weekly progress data - since we don't have historical data yet,
+    // we'll show 0% for previous days
     const today = new Date();
     const lastWeek = subDays(today, 6);
     const days = eachDayOfInterval({ start: lastWeek, end: today });
     
-    // In a real app, this would fetch actual completion data from the database
-    // For now, generate simulated weekly data with a climbing trend
-    const weeklyProgress = days.map((day, index) => {
-      const isCurrentDay = isToday(day);
-      
-      // For demo purposes, create a simulated trend that improves over time
-      // In a real app, this would be real data from the progress records
-      const baseCompletion = 30 + (index * 7); // Starts at 30%, gradually increases
-      // Today's data should be the actual current completion rate
-      return isCurrentDay ? calculateProgress(1, exercises.length) : baseCompletion; 
-    });
+    // Only today has actual data, other days are shown as 0% completed
+    const weeklyProgress = days.map(day => 
+      isToday(day) ? completionRate : 0
+    );
     
-    // Simulate a streak (in a real app, this would be calculated from actual data)
-    const streak = 3; // Demo value
+    // A streak requires historical data which we don't have yet,
+    // so we'll just report 1 if any exercises are completed today, 0 otherwise
+    const streak = completedToday > 0 ? 1 : 0;
     
     return {
       totalExercises: exercises.length,
-      completedToday: 1, // Demo value, in a real app this would be the actual count
-      completionRate: calculateProgress(1, exercises.length),
+      completedToday,
+      completionRate,
       streak,
       weeklyProgress
     };
