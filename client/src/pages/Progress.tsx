@@ -1,12 +1,12 @@
 import React, { useMemo } from 'react';
-import { useExercises, isExerciseCompletedToday } from '@/hooks/use-exercises';
+import { useExercisesWithProgress } from '@/hooks/use-exercises';
 import { TabBar } from '@/components/TabBar';
 import { calculateProgress } from '@/lib/utils';
 import { Calendar, TrendingUp, Target, Award } from 'lucide-react';
 import { format, subDays, eachDayOfInterval, isToday, startOfDay, addHours } from 'date-fns';
 
 export default function Progress() {
-  const { data: exercises, isLoading } = useExercises();
+  const { data: exercises, isLoading } = useExercisesWithProgress();
   
   // Calculate completion rate using actual exercise data
   const stats = useMemo(() => {
@@ -20,9 +20,9 @@ export default function Progress() {
       };
     }
     
-    // Count exercises completed today using the isExerciseCompletedToday helper
+    // Count exercises completed today using the actual completed status
     const completedToday = exercises.filter(exercise => 
-      isExerciseCompletedToday(exercise)
+      exercise.completed
     ).length;
     
     // Calculate completion rate as a percentage

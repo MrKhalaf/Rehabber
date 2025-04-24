@@ -2,11 +2,55 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Exercise, ExerciseProgress, InsertExercise, InsertExerciseProgress } from "@shared/schema";
 import { ExerciseStatus } from "@/lib/utils";
+import { useMemo } from "react";
 
 export function useExercises() {
   return useQuery<Exercise[]>({
     queryKey: ['/api/exercises'],
   });
+}
+
+/**
+ * Custom hook to load exercises with their progress data
+ */
+export function useExercisesWithProgress() {
+  const { data: exercises, isLoading: isExercisesLoading } = useExercises();
+  const exerciseIds = exercises?.map(ex => ex.id) || [];
+  
+  // Create an array of queries for each exercise's progress
+  const progressQueries = exerciseIds.map(id => ({
+    queryKey: [`/api/progress/${id}`],
+    enabled: !!id,
+  }));
+  
+  // Execute all progress queries in parallel
+  const progressResults = exerciseIds.map(id => 
+    useQuery<ExerciseProgress[]>({
+      queryKey: [`/api/progress/${id}`],
+      enabled: !!id,
+    })
+  );
+  
+  // Combine exercises with their progress data
+  const exercisesWithProgress = useMemo(() => {
+    if (!exercises) return [];
+    
+    return exercises.map((exercise, index) => {
+      const progressData = progressResults[index]?.data || [];
+      return {
+        ...exercise,
+        completed: isExerciseCompletedToday(exercise, progressData),
+        progressData
+      } as Exercise & { completed: boolean; progressData: ExerciseProgress[] };
+    });
+  }, [exercises, progressResults]);
+  
+  const isLoading = isExercisesLoading || progressResults.some(result => result.isLoading);
+  
+  return {
+    data: exercisesWithProgress,
+    isLoading
+  };
 }
 
 export function useExercisesByCategory(category: string) {

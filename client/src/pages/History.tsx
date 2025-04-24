@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useExercises, isExerciseCompletedToday } from '@/hooks/use-exercises';
+import { useExercisesWithProgress } from '@/hooks/use-exercises';
 import { TabBar } from '@/components/TabBar';
 import { format, subDays } from 'date-fns';
 import { CheckCircle, Circle } from 'lucide-react';
@@ -16,7 +16,7 @@ type ExerciseHistoryDay = {
 };
 
 export default function History() {
-  const { data: exercises, isLoading } = useExercises();
+  const { data: exercises, isLoading } = useExercisesWithProgress();
   
   // Create history data for the last 7 days
   const historyDays = useMemo(() => {
@@ -41,8 +41,9 @@ export default function History() {
         exercises: exercises.map(ex => ({
           id: ex.id,
           name: ex.name,
-          // Only today can have completed exercises based on actual data
-          completed: i === 0 && isExerciseCompletedToday(ex),
+          // For today, use the actual completed status from our new hook
+          // This comes directly from the real progress data
+          completed: i === 0 && ex.completed === true,
         }))
       });
     }
