@@ -88,7 +88,7 @@ export function useTimer({
   const proceedToNext = useCallback(() => {
     // Use our reference value to determine the current phase,
     // which ensures we're always working with the correct value
-    const currentPhase = currentPhaseRef.current;
+    const currentPhase = timerStateRef.current.phase; 
     const wasResting = currentPhase === 'rest';
     const currentSideCopy = currentSide;
     const currentSetCopy = currentSet;
@@ -115,8 +115,8 @@ export function useTimer({
             console.log('Switching to right side (alternate strategy)');
             setCurrentSide('right');
             // Reset to exercise phase when switching sides in alternate strategy too
-            currentPhaseRef.current = 'exercise';
-            console.log(`Phase set to: ${currentPhaseRef.current} for right side`);
+            timerStateRef.current.phase = 'exercise';
+            console.log(`Phase set to: ${timerStateRef.current.phase} for right side`);
             if (onSideChange) onSideChange();
           } else {
             // We've completed both sides of the current set
@@ -143,7 +143,12 @@ export function useTimer({
             if (currentSetCopy < sets) {
               // Move to next set, still on left side
               console.log(`Moving to set ${currentSetCopy + 1} (sequential strategy, left side)`);
-              setCurrentSet(prev => prev + 1);
+              // IMPORTANT: Use a standard value update, not a callback function
+              // This ensures the value is updated immediately for our local code
+              const nextSetValue = currentSetCopy + 1;
+              setCurrentSet(nextSetValue);
+              // Add this debug line to trace the state flow
+              console.log(`DEBUG: Left side - Current set was ${currentSetCopy}, now setting to ${nextSetValue}`);
               // Reset to exercise phase when moving to next set on left side
               currentPhaseRef.current = 'exercise';
               console.log(`Phase set to: ${currentPhaseRef.current} for next set on left side`);
@@ -217,8 +222,16 @@ export function useTimer({
     return true;
   }, [currentSet, currentSide, duration, isResting, onComplete, onSetComplete, onSideChange, restDuration, sets, sides, sideStrategy]);
   
-  // Use a reference to track the current phase to avoid React state timing issues
-  const currentPhaseRef = useRef<'rest' | 'exercise'>('exercise');
+  // Use a single reference to track all critical state to avoid React state timing issues
+  const timerStateRef = useRef<{
+    phase: 'rest' | 'exercise';
+    set: number;
+    side: 'left' | 'right' | null;
+  }>({
+    phase: 'exercise',
+    set: 1,
+    side: sides ? 'left' : null
+  });
   
   // A more robust approach that uses closure variables instead of React state for timing logic
   // This avoids stale closure issues with React state updates
@@ -237,7 +250,7 @@ export function useTimer({
     
     // Use our reference instead of React state to determine the phase
     // This ensures consistency regardless of React's state update timing
-    const phaseIsRest = currentPhaseRef.current === 'rest';
+    const phaseIsRest = timerStateRef.current.phase === 'rest';
     // Also update the React state to match our reference
     setIsResting(phaseIsRest);
     
@@ -303,8 +316,11 @@ export function useTimer({
     setCurrentSet(1);
     setCurrentSide(sides ? 'left' : null);
     setIsResting(false);
-    // Reset our phase reference to the beginning (exercise mode)
+    // Reset all our references to the beginning state
     currentPhaseRef.current = 'exercise';
+    currentSetRef.current = 1;
+    currentSideRef.current = sides ? 'left' : null;
+    console.log(`References initialized - Set: ${currentSetRef.current}, Side: ${currentSideRef.current}, Phase: ${currentPhaseRef.current}`);
     startTimer();
   }, [duration, sides, startTimer]);
   
