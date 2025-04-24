@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { useSettings } from "@/contexts/SettingsContext";
 
+// Define theme options as a string union type
 type Theme = "dark" | "light" | "system";
 
 type ThemeProviderProps = {
@@ -62,10 +63,13 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     root.setAttribute("data-theme", theme);
     
     // Make sure we also update the contrast appropriately
-    if (theme === "dark" || (theme === "system" && systemTheme === "dark")) {
+    if (theme === "dark") {
       root.style.setProperty("color-scheme", "dark");
-    } else {
+    } else if (theme === "light") {
       root.style.setProperty("color-scheme", "light");
+    } else {
+      // For system theme
+      root.style.setProperty("color-scheme", systemTheme);
     }
   }, [theme, settings.theme, systemTheme]);
 
