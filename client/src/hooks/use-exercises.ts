@@ -95,6 +95,57 @@ export function useParsePTNotes() {
   });
 }
 
+/**
+ * Get the current exercise day's start timestamp (4 AM)
+ * Exercise days reset at 4 AM rather than midnight
+ */
+export function getCurrentExerciseDayStart(): Date {
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(4, 0, 0, 0); // Set to 4 AM
+  
+  // If current time is before 4 AM, use previous day's 4 AM
+  if (now.getHours() < 4) {
+    today.setDate(today.getDate() - 1);
+  }
+  
+  return today;
+}
+
+/**
+ * Get exercise progress for the current exercise day
+ */
+export function getExerciseDayProgress(progressData: ExerciseProgress[]): ExerciseProgress[] {
+  const exerciseDayStart = getCurrentExerciseDayStart();
+  const tomorrow = new Date(exerciseDayStart);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  
+  return progressData.filter(p => {
+    const completedDate = new Date(p.completedAt);
+    return completedDate >= exerciseDayStart && completedDate < tomorrow;
+  });
+}
+
+/**
+ * Determine if an exercise is completed for today
+ */
+export function isExerciseCompletedToday(exercise: Exercise, progressData?: ExerciseProgress[]): boolean {
+  if (!progressData || progressData.length === 0) {
+    return false;
+  }
+  
+  // Get current exercise day's progress
+  const exerciseDayProgress = getExerciseDayProgress(progressData);
+  
+  // Calculate total sets completed today
+  const totalSetsCompleted = exerciseDayProgress.reduce(
+    (sum, progress) => sum + progress.completedSets,
+    0
+  );
+  
+  return totalSetsCompleted >= exercise.sets;
+}
+
 // Helper function to determine exercise status based on progress
 export function determineExerciseStatus(
   exercise: Exercise,
@@ -104,22 +155,15 @@ export function determineExerciseStatus(
     return ExerciseStatus.TODO;
   }
   
-  // Get today's progress
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  // Get current exercise day's progress
+  const exerciseDayProgress = getExerciseDayProgress(progressData);
   
-  const todayProgress = progressData.filter(p => {
-    const completedDate = new Date(p.completedAt);
-    completedDate.setHours(0, 0, 0, 0);
-    return completedDate.getTime() === today.getTime();
-  });
-  
-  if (todayProgress.length === 0) {
+  if (exerciseDayProgress.length === 0) {
     return ExerciseStatus.TODO;
   }
   
   // Calculate total sets completed today
-  const totalSetsCompleted = todayProgress.reduce(
+  const totalSetsCompleted = exerciseDayProgress.reduce(
     (sum, progress) => sum + progress.completedSets,
     0
   );

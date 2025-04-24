@@ -34,20 +34,33 @@ export default function Timer() {
 
   const handleExerciseComplete = () => {
     if (exercise) {
-      // Record that all sets were completed
+      // Get current exercise day's start time (4 AM)
+      const now = new Date();
+      
+      // Record that all sets were completed 
       recordProgress.mutate({
         exerciseId: exercise.id,
         completedSets: exercise.sets,
-        completedAt: new Date(),
+        completedAt: now,
         notes: ''
-      });
-      
-      // Update our completed state
-      setIsCompleted(true);
-      
-      toast({
-        title: "Exercise Completed!",
-        description: `Great job completing all sets of ${exercise.name}`,
+      }, {
+        onSuccess: () => {
+          // Update our completed state
+          setIsCompleted(true);
+          
+          toast({
+            title: "Exercise Completed!",
+            description: `Great job completing all sets of ${exercise.name}`,
+          });
+        },
+        onError: (error) => {
+          console.error('Failed to record progress:', error);
+          toast({
+            title: "Error",
+            description: "Failed to save your progress. Please try again.",
+            variant: "destructive"
+          });
+        }
       });
     }
   };

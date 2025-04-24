@@ -1,16 +1,21 @@
 import React from 'react';
 import { useRoute, useLocation } from 'wouter';
-import { useExercise } from '@/hooks/use-exercises';
+import { useExercise, useExerciseProgress, isExerciseCompletedToday } from '@/hooks/use-exercises';
 import { TabBar } from '@/components/TabBar';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, Play, Edit } from 'lucide-react';
-import { formatDuration } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { ChevronLeft, Play, Edit, CheckCircle2 } from 'lucide-react';
+import { ExerciseStatus, formatDuration, getStatusBadgeClasses, getStatusLabel } from '@/lib/utils';
 
 export default function ExerciseDetail() {
   const [, setLocation] = useLocation();
   const [match, params] = useRoute('/exercise/:id');
   const exerciseId = match ? parseInt(params.id) : null;
   const { data: exercise, isLoading, isError } = useExercise(exerciseId);
+  const { data: progressData } = useExerciseProgress(exerciseId);
+  
+  // Check if exercise is completed for today
+  const isCompletedToday = exercise && progressData ? isExerciseCompletedToday(exercise, progressData) : false;
 
   const handleBack = () => {
     setLocation('/');

@@ -57,9 +57,19 @@ export const exerciseProgress = pgTable("exercise_progress", {
   notes: text("notes")
 });
 
-export const exerciseProgressInsertSchema = createInsertSchema(exerciseProgress).omit({
-  id: true
-});
+export const exerciseProgressInsertSchema = createInsertSchema(exerciseProgress)
+  .omit({
+    id: true
+  })
+  .transform((data) => {
+    // Convert string dates to Date objects
+    return {
+      ...data,
+      completedAt: data.completedAt instanceof Date 
+        ? data.completedAt 
+        : new Date(data.completedAt || new Date())
+    };
+  });
 
 // User-defined custom programs (collection of exercises)
 export const programs = pgTable("programs", {
