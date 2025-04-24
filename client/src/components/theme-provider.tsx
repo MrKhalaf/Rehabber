@@ -24,6 +24,23 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   
   // Use the theme from settings
   const [theme, setTheme] = useState<Theme>(settings.theme);
+  const [systemTheme, setSystemTheme] = useState<"dark" | "light">(
+    typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light"
+  );
+
+  // Listen for system theme changes
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
+    
+    const handleChange = (e: MediaQueryListEvent) => {
+      setSystemTheme(e.matches ? "dark" : "light");
+    };
+    
+    mediaQuery.addEventListener("change", handleChange);
+    return () => mediaQuery.removeEventListener("change", handleChange);
+  }, []);
 
   useEffect(() => {
     const root = window.document.documentElement;
@@ -34,16 +51,23 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
     root.classList.remove("light", "dark");
     
     if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-        ? "dark"
-        : "light";
       root.classList.add(systemTheme);
+      
+      // Set data attribute as well for components that use it
+      root.setAttribute("data-theme", systemTheme);
       return;
     }
     
     root.classList.add(theme);
-  }, [theme, settings.theme]);
+    root.setAttribute("data-theme", theme);
+    
+    // Make sure we also update the contrast appropriately
+    if (theme === "dark" || (theme === "system" && systemTheme === "dark")) {
+      root.style.setProperty("color-scheme", "dark");
+    } else {
+      root.style.setProperty("color-scheme", "light");
+    }
+  }, [theme, settings.theme, systemTheme]);
 
   const value = {
     theme,
