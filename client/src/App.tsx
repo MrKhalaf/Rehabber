@@ -9,6 +9,8 @@ import ExerciseDetail from "@/pages/ExerciseDetail";
 import Timer from "@/pages/Timer";
 import AddExercise from "@/pages/AddExercise";
 import EditExercise from "@/pages/EditExercise";
+import History from "@/pages/History";
+import Progress from "@/pages/Progress";
 import NotFound from "@/pages/not-found";
 
 function Router() {
@@ -19,9 +21,10 @@ function Router() {
       <Route path="/timer/:id" component={Timer} />
       <Route path="/add-exercise" component={AddExercise} />
       <Route path="/edit-exercise/:id" component={EditExercise} />
+      {/* Implemented routes */}
+      <Route path="/history" component={History} />
+      <Route path="/progress" component={Progress} />
       {/* Future routes */}
-      <Route path="/history" component={() => <div className="p-8">History page coming soon</div>} />
-      <Route path="/progress" component={() => <div className="p-8">Progress tracking coming soon</div>} />
       <Route path="/profile" component={() => <div className="p-8">User profile coming soon</div>} />
       {/* Fallback to 404 */}
       <Route component={NotFound} />
