@@ -1,5 +1,5 @@
-import React from 'react';
-import { useExercises } from '@/hooks/use-exercises';
+import React, { useMemo } from 'react';
+import { useExercises, isExerciseCompletedToday } from '@/hooks/use-exercises';
 import { calculateProgress } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
@@ -10,9 +10,16 @@ interface ProgressSummaryProps {
 export function ProgressSummary({ className }: ProgressSummaryProps) {
   const { data: exercises, isLoading } = useExercises();
 
-  // Placeholder for completed exercises count
-  // In a real app, you'd track completion status in a separate state or query
-  const completedCount = 3;
+  // Calculate completed exercises using our isExerciseCompletedToday function
+  const completedCount = useMemo(() => {
+    if (!exercises) return 0;
+    
+    // Count exercises that are completed today
+    return exercises.filter(exercise => {
+      return isExerciseCompletedToday(exercise);
+    }).length;
+  }, [exercises]);
+  
   const totalCount = exercises ? exercises.length : 0;
   const progressPercentage = calculateProgress(completedCount, totalCount);
 
