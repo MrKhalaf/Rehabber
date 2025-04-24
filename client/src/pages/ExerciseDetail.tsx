@@ -71,6 +71,24 @@ export default function ExerciseDetail() {
             <div className="text-center mt-2">
               <h1 className="text-xl font-bold">{exercise.name}</h1>
               <p className="text-white/80 mt-1">{exercise.category}</p>
+              
+              {/* Completion status badge */}
+              <div className="mt-3">
+                <Badge 
+                  variant="outline" 
+                  className={`${getStatusBadgeClasses(isCompletedToday ? ExerciseStatus.COMPLETED : ExerciseStatus.TODO)} 
+                             text-sm font-medium px-3 py-1 rounded-full`}
+                >
+                  {isCompletedToday ? (
+                    <>
+                      <CheckCircle2 className="h-4 w-4 mr-1" />
+                      Completed Today
+                    </>
+                  ) : (
+                    'Not Completed Today'
+                  )}
+                </Badge>
+              </div>
             </div>
           </div>
 
@@ -134,11 +152,22 @@ export default function ExerciseDetail() {
             {/* Action Buttons */}
             <div className="mt-6 space-y-3">
               <Button 
-                className="w-full py-4 h-auto text-base"
+                className={`w-full py-4 h-auto text-base ${
+                  isCompletedToday ? 'bg-green-600 hover:bg-green-700' : ''
+                }`}
                 onClick={handleStartExercise}
               >
-                <Play className="h-5 w-5 mr-2" />
-                Start Exercise
+                {isCompletedToday ? (
+                  <>
+                    <CheckCircle2 className="h-5 w-5 mr-2" />
+                    Repeat Exercise
+                  </>
+                ) : (
+                  <>
+                    <Play className="h-5 w-5 mr-2" />
+                    Start Exercise
+                  </>
+                )}
               </Button>
               
               <Button 

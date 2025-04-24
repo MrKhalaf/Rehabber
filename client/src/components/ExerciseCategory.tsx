@@ -1,5 +1,5 @@
 import React from 'react';
-import { useExercisesByCategory } from '@/hooks/use-exercises';
+import { useExercisesByCategory, determineExerciseStatus } from '@/hooks/use-exercises';
 import { ExerciseCard } from './ExerciseCard';
 import { ExerciseStatus } from '@/lib/utils';
 
@@ -35,24 +35,20 @@ export function ExerciseCategory({ title, category, className }: ExerciseCategor
     );
   }
 
-  // In a real application, the status would be determined by the user's progress
-  // Here, we'll just set some mock statuses for demonstration
-  const getStatus = (index: number): ExerciseStatus => {
-    // For demonstration, we'll mark every other exercise as completed
-    if (index % 3 === 0) return ExerciseStatus.COMPLETED;
-    if (index % 3 === 1) return ExerciseStatus.TODO;
-    return ExerciseStatus.TODO;
+  // Get exercise status based on progress data from the database
+  const getStatus = (exercise: any): ExerciseStatus => {
+    return determineExerciseStatus(exercise);
   };
 
   return (
     <div className={`mb-6 ${className}`}>
       <h3 className="text-md font-medium text-gray-700 mb-3">{title}</h3>
       
-      {exercises.map((exercise, index) => (
+      {exercises.map((exercise) => (
         <ExerciseCard 
           key={exercise.id} 
           exercise={exercise} 
-          status={getStatus(index)}
+          status={getStatus(exercise)}
         />
       ))}
     </div>
