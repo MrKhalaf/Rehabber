@@ -163,10 +163,10 @@ export function useTimer({
             if (currentSetCopy < sets) {
               // Move to next set, still on left side
               console.log(`Moving to set ${currentSetCopy + 1} (sequential strategy, left side)`);
-              // IMPORTANT: Track set changes in both state and ref
+              // IMPORTANT: Track set changes in ref FIRST, then state
               const nextSet = currentSetCopy + 1;
-              setCurrentSet(nextSet);
-              timerStateRef.current.set = nextSet; // Update ref
+              timerStateRef.current.set = nextSet; // Update ref first
+              setCurrentSet(nextSet); // Then update state
               console.log(`DEBUG: Left side - Current set was ${currentSetCopy}, now setting to ${nextSet}`);
               // Reset to exercise phase when moving to next set on left side
               timerStateRef.current.phase = 'exercise';
@@ -175,8 +175,8 @@ export function useTimer({
             } else {
               // All sets on left side complete, switch to right side set 1
               console.log('Switching to right side, set 1 (sequential strategy)');
-              setCurrentSet(1);
               timerStateRef.current.set = 1;
+              setCurrentSet(1);
               setCurrentSide('right');
               timerStateRef.current.side = 'right';
               // Make sure we reset to exercise phase when switching sides
@@ -189,8 +189,8 @@ export function useTimer({
               // Move to next set on right side
               console.log(`Moving to set ${currentSetCopy + 1} (sequential strategy, right side)`);
               const nextSet = currentSetCopy + 1;
-              setCurrentSet(nextSet);
               timerStateRef.current.set = nextSet;
+              setCurrentSet(nextSet);
               // Reset to exercise phase when moving to next set on right side
               timerStateRef.current.phase = 'exercise';
               console.log(`Phase set to: ${timerStateRef.current.phase} for next set on right side`);
@@ -210,8 +210,8 @@ export function useTimer({
           // Move to next set
           console.log(`Moving to set ${currentSetCopy + 1} (no sides)`);
           const nextSet = currentSetCopy + 1;
-          setCurrentSet(nextSet);
           timerStateRef.current.set = nextSet;
+          setCurrentSet(nextSet);
           // Reset to exercise phase when moving to the next set (no sides)
           timerStateRef.current.phase = 'exercise';
           console.log(`Phase set to: ${timerStateRef.current.phase} for next set (no sides)`);
@@ -261,6 +261,17 @@ export function useTimer({
     console.log(`currentSet: ${currentSet}, currentSide: ${currentSide}`);
     console.log(`------------------------------`);
     
+    // FORCED SYNCHRONIZATION: Make React state match our reference values
+    // This is critical to ensure the UI shows the correct values
+    if (currentSet !== timerStateRef.current.set) {
+      console.log(`FORCING SET UPDATE: ${currentSet} -> ${timerStateRef.current.set}`);
+      setCurrentSet(timerStateRef.current.set);
+    }
+    if (currentSide !== timerStateRef.current.side) {
+      console.log(`FORCING SIDE UPDATE: ${currentSide} -> ${timerStateRef.current.side}`);
+      setCurrentSide(timerStateRef.current.side);
+    }
+    
     // Use our reference instead of React state to determine the phase
     // This ensures consistency regardless of React's state update timing
     const phaseIsRest = timerStateRef.current.phase === 'rest';
@@ -274,8 +285,7 @@ export function useTimer({
     console.log(`STARTING ${phaseLabel} TIMER`);
     console.log(`Duration: ${phaseDuration} seconds`);
     console.log(`isResting: ${phaseIsRest}`);
-    console.log(`Set ${currentSet}/${sets}, Side: ${currentSide || 'none'}`);
-    console.log(`Reference Set: ${timerStateRef.current.set}/${sets}, Side: ${timerStateRef.current.side || 'none'}`);
+    console.log(`Set ${timerStateRef.current.set}/${sets}, Side: ${timerStateRef.current.side || 'none'}`);
     console.log(`------------------------------`);
     
     // Set the start time reference and update timer state
@@ -361,7 +371,18 @@ export function useTimer({
       console.log(`RESUMING ${phaseLabel} TIMER`);
       console.log(`Time remaining: ${remainingTime} seconds`);
       console.log(`isResting: ${phaseIsRest}`);
-      console.log(`Set ${currentSet}/${sets}, Side: ${currentSide || 'none'}`);
+      
+      // FORCED SYNCHRONIZATION: Make React state match our reference values
+      if (currentSet !== timerStateRef.current.set) {
+        console.log(`FORCING SET UPDATE ON RESUME: ${currentSet} -> ${timerStateRef.current.set}`);
+        setCurrentSet(timerStateRef.current.set);
+      }
+      if (currentSide !== timerStateRef.current.side) {
+        console.log(`FORCING SIDE UPDATE ON RESUME: ${currentSide} -> ${timerStateRef.current.side}`);
+        setCurrentSide(timerStateRef.current.side);
+      }
+      
+      console.log(`Set ${timerStateRef.current.set}/${sets}, Side: ${timerStateRef.current.side || 'none'}`);
       console.log(`------------------------------`);
       
       // Adjust start time to account for already elapsed time
