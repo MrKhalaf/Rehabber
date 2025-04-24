@@ -11,45 +11,25 @@ export function useExercises() {
 }
 
 /**
- * Custom hook to load exercises with their progress data
+ * Custom hook to load exercises with their completion status
  */
 export function useExercisesWithProgress() {
+  // Just fetch regular exercises for now
   const { data: exercises, isLoading: isExercisesLoading } = useExercises();
-  const exerciseIds = exercises?.map(ex => ex.id) || [];
   
-  // Create an array of queries for each exercise's progress
-  const progressQueries = exerciseIds.map(id => ({
-    queryKey: [`/api/progress/${id}`],
-    enabled: !!id,
-  }));
-  
-  // Execute all progress queries in parallel
-  const progressResults = exerciseIds.map(id => 
-    useQuery<ExerciseProgress[]>({
-      queryKey: [`/api/progress/${id}`],
-      enabled: !!id,
-    })
-  );
-  
-  // Combine exercises with their progress data
-  const exercisesWithProgress = useMemo(() => {
+  // Add completed=false to all exercises
+  const exercisesWithCompletion = useMemo(() => {
     if (!exercises) return [];
     
-    return exercises.map((exercise, index) => {
-      const progressData = progressResults[index]?.data || [];
-      return {
-        ...exercise,
-        completed: isExerciseCompletedToday(exercise, progressData),
-        progressData
-      } as Exercise & { completed: boolean; progressData: ExerciseProgress[] };
-    });
-  }, [exercises, progressResults]);
-  
-  const isLoading = isExercisesLoading || progressResults.some(result => result.isLoading);
+    return exercises.map(exercise => ({
+      ...exercise,
+      completed: false
+    }));
+  }, [exercises]);
   
   return {
-    data: exercisesWithProgress,
-    isLoading
+    data: exercisesWithCompletion,
+    isLoading: isExercisesLoading
   };
 }
 
