@@ -17,7 +17,7 @@ export function TabBar({ className }: TabBarProps) {
   ];
 
   return (
-    <div className={`bg-white fixed bottom-0 left-0 right-0 shadow-lg border-t border-gray-200 ${className}`}>
+    <div className={`bg-white dark:bg-slate-800 fixed bottom-0 left-0 right-0 shadow-lg border-t border-gray-200 dark:border-slate-700 ${className}`}>
       <div className="safe-area">
         <div className="grid grid-cols-4 h-[70px]">
           {tabs.map(tab => (
@@ -25,7 +25,9 @@ export function TabBar({ className }: TabBarProps) {
               key={tab.path} 
               href={tab.path}
               className={`flex flex-col items-center justify-center pt-2 pb-1 relative ${
-                location === tab.path ? 'text-primary' : 'text-gray-500'
+                location === tab.path 
+                  ? 'text-primary dark:text-primary' 
+                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
               <div className="w-6 h-6 mb-1">
