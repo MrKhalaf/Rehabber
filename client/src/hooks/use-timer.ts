@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { useSettings } from '@/contexts/SettingsContext';
 
 export type TimerState = 'inactive' | 'running' | 'paused' | 'completed';
 
@@ -38,14 +39,20 @@ export interface TimerReturn {
 
 export function useTimer({
   duration,
-  restDuration = 30,
+  restDuration,
   sets = 1,
   sides = false,
-  sideStrategy = 'alternate',
+  sideStrategy,
   onComplete,
   onSetComplete,
   onSideChange
 }: TimerConfig): TimerReturn {
+  // Get default values from settings
+  const { settings } = useSettings();
+  
+  // Use settings as fallbacks for unspecified parameters
+  const effectiveRestDuration = restDuration ?? settings.defaultRestPeriod;
+  const effectiveSideStrategy = sideStrategy ?? settings.defaultSideStrategy;
   const [timeRemaining, setTimeRemaining] = useState(duration);
   const [currentSet, setCurrentSet] = useState(1);
   const [currentSide, setCurrentSide] = useState<'left' | 'right' | null>(sides ? 'left' : null);

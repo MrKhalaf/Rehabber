@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import { useExercise, useRecordExerciseProgress } from '@/hooks/use-exercises';
-import { useTimer, SideStrategy } from '@/hooks/use-timer-fixed'; // Use the fixed timer implementation
+import { useSettingsTimer, SideStrategy } from '@/hooks/use-settings-timer'; // Use the settings-aware timer
 import { CircularProgress } from '@/components/ui/circular-progress';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
@@ -65,15 +65,15 @@ export default function Timer() {
     }
   };
   
-  // Create the timer
-  const timer = useTimer({
+  // Create the timer with settings awareness
+  const timer = useSettingsTimer({
     duration: exercise?.type === 'hold' ? (exercise.holdDuration || 10) : 3, // Default to 3 seconds for rep exercises
     restDuration: exercise?.restTime || 30,
     sets: exercise?.sets || 1,
     sides: exercise?.isPaired || false,
     sideStrategy: sideStrategy,
     onComplete: handleExerciseComplete,
-    onSetComplete: (set) => {
+    onSetComplete: (set: number) => {
       console.log(`Set ${set} completed callback fired`);
       // Update our local value rather than using timer.currentSet
       setDisplaySet(set + 1);
