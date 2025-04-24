@@ -161,17 +161,17 @@ export default function Timer() {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-light text-dark">
-      <div className="bg-primary text-white p-4 pt-12 relative">
+    <div className="h-screen flex flex-col bg-background dark:bg-slate-900 text-foreground dark:text-white">
+      <div className="bg-primary text-primary-foreground p-4 pt-12 relative">
         <button 
-          className="absolute top-12 left-4 p-1 rounded-full bg-white/20"
+          className="absolute top-12 left-4 p-1 rounded-full bg-white/20 hover:bg-white/30"
           onClick={handleBack}
         >
           <ChevronLeft className="h-6 w-6" />
         </button>
         <div className="text-center mt-2">
           <h1 className="text-xl font-bold">{exercise.name}</h1>
-          <p className="text-white/80 mt-1">
+          <p className="text-primary-foreground/90 mt-1">
             {getSideLabel()} • Set {displaySet} of {timer.totalSets}
           </p>
           
@@ -216,8 +216,8 @@ export default function Timer() {
         <div className="flex flex-col items-center justify-center mt-8">
           {isCompleted || timer.state === 'completed' ? (
             <div className="flex flex-col items-center">
-              <div className="w-64 h-64 rounded-full bg-green-100 flex items-center justify-center">
-                <div className="w-52 h-52 rounded-full bg-green-500 flex items-center justify-center text-white">
+              <div className="w-64 h-64 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                <div className="w-52 h-52 rounded-full bg-green-500 dark:bg-green-600 flex items-center justify-center text-white">
                   <div className="text-center">
                     <span className="text-6xl font-bold">✓</span>
                     <p className="mt-2 text-lg">Completed!</p>
@@ -225,8 +225,8 @@ export default function Timer() {
                 </div>
               </div>
               <div className="text-center mt-6">
-                <h2 className="text-xl font-semibold">Exercise Complete</h2>
-                <p className="text-gray-600 mt-1">Great job! You finished all sets.</p>
+                <h2 className="text-xl font-semibold text-foreground dark:text-white">Exercise Complete</h2>
+                <p className="text-muted-foreground dark:text-gray-300 mt-1">Great job! You finished all sets.</p>
               </div>
             </div>
           ) : (
@@ -237,17 +237,17 @@ export default function Timer() {
                 strokeWidth={10}
                 className={`mb-4 ${isRestingNow ? 'text-green-500' : 'text-blue-500'}`}
               >
-                <span className="text-6xl font-bold">
+                <span className="text-6xl font-bold text-foreground dark:text-white">
                   {formatTime(timer.timeRemaining)}
                 </span>
-                <span className="text-gray-600 mt-2">
+                <span className="text-muted-foreground dark:text-gray-300 mt-2 font-medium">
                   {isRestingNow ? 'REST PERIOD' : 'EXERCISE PERIOD'}
                 </span>
               </CircularProgress>
               
               <div className="text-center mt-4">
-                <h2 className="text-xl font-semibold">{getActionText()}</h2>
-                <p className="text-gray-600 mt-1">{getActionSubtext()}</p>
+                <h2 className="text-xl font-semibold text-foreground dark:text-white">{getActionText()}</h2>
+                <p className="text-muted-foreground dark:text-gray-300 mt-1">{getActionSubtext()}</p>
               </div>
             </>
           )}
@@ -256,17 +256,17 @@ export default function Timer() {
         {/* Exercise Progress */}
         <div className="w-full mt-8">
           <div className="flex items-center justify-between mb-4">
-            <span className="text-gray-600">Sets progress</span>
-            <span className="font-medium">{displaySet}/{timer.totalSets}</span>
+            <span className="text-muted-foreground dark:text-gray-300 font-medium">Sets progress</span>
+            <span className="font-semibold text-foreground dark:text-white">{displaySet}/{timer.totalSets}</span>
           </div>
           <div className="w-full flex space-x-2">
             {Array.from({ length: timer.totalSets }).map((_, i) => (
               <div 
                 key={i}
-                className={`h-2 flex-1 rounded-full ${
+                className={`h-2.5 flex-1 rounded-full ${
                   i < displaySet - 1 || 
                   (i === displaySet - 1 && isRestingNow) ? 
-                  'bg-primary' : 'bg-gray-200'
+                  'bg-primary' : 'bg-gray-200 dark:bg-gray-700'
                 }`}
               />
             ))}

@@ -81,11 +81,12 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   );
 }
 
-export const useTheme = () => {
+// Exporting hook with function declaration format for Hot Module Replacement compatibility
+export function useTheme() {
   const context = useContext(ThemeProviderContext);
 
   if (context === undefined)
     throw new Error("useTheme must be used within a ThemeProvider");
 
   return context;
-};
+}

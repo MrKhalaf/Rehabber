@@ -34,18 +34,18 @@ export function Header({
   };
 
   return (
-    <header className={cn("flex items-center justify-between p-4 bg-background sticky top-0 z-10 border-b", className)}>
+    <header className={cn("flex items-center justify-between p-4 bg-card dark:bg-slate-800 sticky top-0 z-10 border-b shadow-sm", className)}>
       <div className="flex items-center">
         {showBackButton && (
           <button 
             onClick={handleBack}
-            className="mr-2 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+            className="mr-2 p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-foreground dark:text-white transition-colors"
           >
             <ChevronLeft className="w-5 h-5" />
             <span className="sr-only">Back</span>
           </button>
         )}
-        <h1 className="text-xl font-semibold">
+        <h1 className="text-xl font-semibold text-foreground dark:text-white">
           {title || "Rehab Workouts"}
         </h1>
       </div>
