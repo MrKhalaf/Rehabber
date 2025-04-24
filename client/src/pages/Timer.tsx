@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import { useExercise, useRecordExerciseProgress } from '@/hooks/use-exercises';
 import { useTimer, SideStrategy } from '@/hooks/use-timer-fixed';
@@ -23,6 +23,13 @@ export default function Timer() {
   const { data: exercise, isLoading, isError } = useExercise(exerciseId);
   const recordProgress = useRecordExerciseProgress();
   const [sideStrategy, setSideStrategy] = useState<SideStrategy>('sequential');
+  
+  // Track current set and side locally
+  const [displaySet, setDisplaySet] = useState(1);
+  const [displaySide, setDisplaySide] = useState<'left' | 'right' | null>(null);
+  const [isRestingNow, setIsRestingNow] = useState(false);
+  
+  const timerRef = useRef<any>(null);
 
   const handleExerciseComplete = () => {
     if (exercise) {
@@ -40,7 +47,8 @@ export default function Timer() {
       });
     }
   };
-
+  
+  // Create the timer
   const timer = useTimer({
     duration: exercise?.type === 'hold' ? (exercise.holdDuration || 10) : 3, // Default to 3 seconds for rep exercises
     restDuration: exercise?.restTime || 30,
@@ -49,24 +57,50 @@ export default function Timer() {
     sideStrategy: sideStrategy,
     onComplete: handleExerciseComplete,
     onSetComplete: (set) => {
+      console.log(`Set ${set} completed callback fired`);
+      // Update our local value rather than using timer.currentSet
+      setDisplaySet(set + 1);
       toast({
         title: "Set Completed",
         description: `You've completed set ${set} of ${exercise?.sets || 1}`
       });
     },
     onSideChange: () => {
+      console.log(`Side change callback fired`);
+      // Update our local value rather than using timer.currentSide
+      setDisplaySide('right');
+      setDisplaySet(1); // Reset set count for right side
       toast({
         title: "Switch Sides",
         description: "Now complete the exercise on the right side"
       });
     }
   });
+  
+  // Store timer ref for access in callbacks
+  useEffect(() => {
+    timerRef.current = timer;
+  }, [timer]);
+  
+  // Keep our display values in sync with the timer
+  useEffect(() => {
+    if (timer.currentSet !== displaySet) {
+      setDisplaySet(timer.currentSet);
+    }
+    if (timer.currentSide !== displaySide) {
+      setDisplaySide(timer.currentSide);
+    }
+    setIsRestingNow(timer.isResting);
+  }, [timer.currentSet, timer.currentSide, timer.isResting]);
 
+  // Start timer when exercise loads (if no sides)
   useEffect(() => {
     if (exercise && timer.state === 'inactive') {
-      // Only auto-start for exercises without sides
-      // For exercises with sides, user will use the Start button after selecting strategy
-      if (!exercise.isPaired) {
+      if (exercise.isPaired) {
+        // Initialize display side for exercises with sides
+        setDisplaySide('left');
+      } else {
+        // Auto-start for exercises without sides
         timer.start();
       }
     }
@@ -87,24 +121,24 @@ export default function Timer() {
   const getSideLabel = () => {
     if (!exercise.isPaired) return '';
     
-    const side = timer.currentSide === 'left' ? 'Left Side' : 'Right Side';
+    const side = displaySide === 'left' ? 'Left Side' : 'Right Side';
     
     // For sequential strategy, show more context about the sides
     if (sideStrategy === 'sequential' && timer.state !== 'inactive') {
-      return `${side} (${timer.currentSide === 'left' ? '1st' : '2nd'} phase)`;
+      return `${side} (${displaySide === 'left' ? '1st' : '2nd'} phase)`;
     }
     
     return side;
   };
 
   const getActionText = () => {
-    if (timer.isResting) return 'Rest';
+    if (isRestingNow) return 'Rest';
     if (exercise.type === 'hold') return 'Hold Position';
     return 'Perform Reps';
   };
 
   const getActionSubtext = () => {
-    if (timer.isResting) return 'Prepare for next set';
+    if (isRestingNow) return 'Prepare for next set';
     if (exercise.type === 'hold') return 'Maintain proper form';
     return `Complete ${exercise.reps} repetitions`;
   };
@@ -121,7 +155,7 @@ export default function Timer() {
         <div className="text-center mt-2">
           <h1 className="text-xl font-bold">{exercise.name}</h1>
           <p className="text-white/80 mt-1">
-            {getSideLabel()} • Set {timer.currentSet} of {timer.totalSets}
+            {getSideLabel()} • Set {displaySet} of {timer.totalSets}
           </p>
           
           {/* Side Strategy Selection - only shown for exercises with sides */}
@@ -147,7 +181,11 @@ export default function Timer() {
               
               <Button 
                 className="w-full mt-3 bg-white text-primary hover:bg-white/90"
-                onClick={() => timer.start()}
+                onClick={() => {
+                  setDisplaySet(1);
+                  setDisplaySide('left');
+                  timer.start();
+                }}
               >
                 Start Exercise
               </Button>
@@ -163,13 +201,13 @@ export default function Timer() {
             value={timer.percentRemaining}
             size={256}
             strokeWidth={10}
-            className={`mb-4 ${timer.isResting ? 'text-green-500' : 'text-blue-500'}`}
+            className={`mb-4 ${isRestingNow ? 'text-green-500' : 'text-blue-500'}`}
           >
             <span className="text-6xl font-bold">
               {formatTime(timer.timeRemaining)}
             </span>
             <span className="text-gray-600 mt-2">
-              {timer.isResting ? 'REST PERIOD' : 'EXERCISE PERIOD'}
+              {isRestingNow ? 'REST PERIOD' : 'EXERCISE PERIOD'}
             </span>
           </CircularProgress>
           
@@ -183,15 +221,15 @@ export default function Timer() {
         <div className="w-full mt-8">
           <div className="flex items-center justify-between mb-4">
             <span className="text-gray-600">Sets progress</span>
-            <span className="font-medium">{timer.currentSet}/{timer.totalSets}</span>
+            <span className="font-medium">{displaySet}/{timer.totalSets}</span>
           </div>
           <div className="w-full flex space-x-2">
             {Array.from({ length: timer.totalSets }).map((_, i) => (
               <div 
                 key={i}
                 className={`h-2 flex-1 rounded-full ${
-                  i < timer.currentSet - 1 || 
-                  (i === timer.currentSet - 1 && timer.isResting) ? 
+                  i < displaySet - 1 || 
+                  (i === displaySet - 1 && isRestingNow) ? 
                   'bg-primary' : 'bg-gray-200'
                 }`}
               />
@@ -205,7 +243,9 @@ export default function Timer() {
             <Button 
               variant="outline" 
               className="flex-1 py-4 h-auto"
-              onClick={timer.pause}
+              onClick={() => {
+                timer.pause();
+              }}
             >
               Pause
             </Button>
@@ -213,17 +253,21 @@ export default function Timer() {
             <Button 
               variant="outline" 
               className="flex-1 py-4 h-auto"
-              onClick={timer.resume}
+              onClick={() => {
+                timer.resume();
+              }}
             >
               Resume
             </Button>
           )}
           
           <Button 
-            className={`flex-1 py-4 h-auto ${timer.isResting ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-            onClick={timer.skip}
+            className={`flex-1 py-4 h-auto ${isRestingNow ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+            onClick={() => {
+              timer.skip();
+            }}
           >
-            {timer.isResting ? 'Skip Rest' : (exercise.type === 'hold' ? 'Complete Hold' : 'Complete Reps')}
+            {isRestingNow ? 'Skip Rest' : (exercise.type === 'hold' ? 'Complete Hold' : 'Complete Reps')}
           </Button>
         </div>
         
@@ -232,11 +276,21 @@ export default function Timer() {
           <Button 
             variant="outline"
             className="w-full py-4 h-auto border-dashed text-gray-600"
-            onClick={timer.nextSet}
+            onClick={() => {
+              // Instead of relying on timer.currentSet, update our local state
+              if (displaySet < timer.totalSets) {
+                setDisplaySet(displaySet + 1);
+              } else if (exercise.isPaired && displaySide === 'left') {
+                setDisplaySide('right');
+                setDisplaySet(1);
+              }
+              timer.nextSet();
+            }}
           >
-            {timer.currentSet < timer.totalSets ? 
-              `Skip to Set ${timer.currentSet + 1}/${timer.totalSets}` : 
-              'Complete All Sets'}
+            {displaySet < timer.totalSets ? 
+              `Skip to Set ${displaySet + 1}/${timer.totalSets}` : 
+              (exercise.isPaired && displaySide === 'left' ? 
+                'Switch to Right Side' : 'Complete All Sets')}
           </Button>
         </div>
       </div>

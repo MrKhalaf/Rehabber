@@ -102,12 +102,12 @@ export function useTimer({
 
   // Function to proceed to next activity (exercise, rest, side, or set)
   const proceedToNext = useCallback(() => {
-    // Use our reference value to determine the current phase,
-    // which ensures we're always working with the correct value
+    // We need to use the most up-to-date values - those in our references
     const currentPhase = timerStateRef.current.phase; 
     const wasResting = currentPhase === 'rest';
-    const currentSideCopy = currentSide;
-    const currentSetCopy = currentSet;
+    // Take values directly from our reference instead of React state
+    const currentSideCopy = timerStateRef.current.side;
+    const currentSetCopy = timerStateRef.current.set;
     
     console.log(`----- TIMER STATE TRANSITION -----`);
     console.log(`From: ${wasResting ? 'Rest' : 'Exercise'} period`);
