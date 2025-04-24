@@ -1,8 +1,7 @@
 import { useState } from 'react';
 import { Link, useLocation } from 'wouter';
 import { TabType } from '@/types';
-import { Cog } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { SettingsPanel } from '@/components/settings/SettingsPanel';
 
 interface HeaderProps {
   onOpenSettings?: () => void;
@@ -12,7 +11,7 @@ export function Header({ onOpenSettings }: HeaderProps) {
   const [location] = useLocation();
   const [activeTab, setActiveTab] = useState<TabType>(() => {
     if (location === '/progress') return 'progress';
-    if (location === '/notes') return 'notes';
+    if (location === '/history') return 'history';
     return 'exercises';
   });
 
@@ -20,14 +19,7 @@ export function Header({ onOpenSettings }: HeaderProps) {
     <header className="bg-white shadow-sm fixed w-full top-0 z-10">
       <div className="px-4 py-3 flex justify-between items-center">
         <h1 className="text-xl font-semibold text-primary-700">RehabRoutine</h1>
-        <Button
-          variant="ghost" 
-          size="icon" 
-          className="rounded-full text-secondary-500 hover:bg-secondary-100"
-          onClick={onOpenSettings}
-        >
-          <Cog className="h-5 w-5" />
-        </Button>
+        <SettingsPanel />
       </div>
       <nav className="flex border-b border-secondary-200">
         <Link href="/">
@@ -54,16 +46,16 @@ export function Header({ onOpenSettings }: HeaderProps) {
             Progress
           </a>
         </Link>
-        <Link href="/notes">
+        <Link href="/history">
           <a 
             className={`flex-1 py-3 text-center ${
-              activeTab === 'notes' 
+              activeTab === 'history' 
                 ? 'text-primary-700 border-b-2 border-primary-600 font-medium' 
                 : 'text-secondary-500 hover:text-secondary-700'
             }`}
-            onClick={() => setActiveTab('notes')}
+            onClick={() => setActiveTab('history')}
           >
-            Notes
+            History
           </a>
         </Link>
       </nav>
