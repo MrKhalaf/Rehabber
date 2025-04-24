@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRoute, useLocation } from 'wouter';
 import { useExercise, useRecordExerciseProgress } from '@/hooks/use-exercises';
-import { useTimer, SideStrategy } from '@/hooks/use-timer';
+import { useTimer, SideStrategy } from '@/hooks/use-timer-fixed';
 import { CircularProgress } from '@/components/ui/circular-progress';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
