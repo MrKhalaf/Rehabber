@@ -28,6 +28,7 @@ export default function Timer() {
   const [displaySet, setDisplaySet] = useState(1);
   const [displaySide, setDisplaySide] = useState<'left' | 'right' | null>(null);
   const [isRestingNow, setIsRestingNow] = useState(false);
+  const [isCompleted, setIsCompleted] = useState(false);
   
   const timerRef = useRef<any>(null);
 
@@ -40,6 +41,9 @@ export default function Timer() {
         completedAt: new Date(),
         notes: ''
       });
+      
+      // Update our completed state
+      setIsCompleted(true);
       
       toast({
         title: "Exercise Completed!",
@@ -197,24 +201,43 @@ export default function Timer() {
       <div className="flex flex-col items-center justify-between h-[calc(100%-160px)] p-6">
         {/* Timer Display */}
         <div className="flex flex-col items-center justify-center mt-8">
-          <CircularProgress
-            value={timer.percentRemaining}
-            size={256}
-            strokeWidth={10}
-            className={`mb-4 ${isRestingNow ? 'text-green-500' : 'text-blue-500'}`}
-          >
-            <span className="text-6xl font-bold">
-              {formatTime(timer.timeRemaining)}
-            </span>
-            <span className="text-gray-600 mt-2">
-              {isRestingNow ? 'REST PERIOD' : 'EXERCISE PERIOD'}
-            </span>
-          </CircularProgress>
-          
-          <div className="text-center mt-4">
-            <h2 className="text-xl font-semibold">{getActionText()}</h2>
-            <p className="text-gray-600 mt-1">{getActionSubtext()}</p>
-          </div>
+          {isCompleted || timer.state === 'completed' ? (
+            <div className="flex flex-col items-center">
+              <div className="w-64 h-64 rounded-full bg-green-100 flex items-center justify-center">
+                <div className="w-52 h-52 rounded-full bg-green-500 flex items-center justify-center text-white">
+                  <div className="text-center">
+                    <span className="text-6xl font-bold">✓</span>
+                    <p className="mt-2 text-lg">Completed!</p>
+                  </div>
+                </div>
+              </div>
+              <div className="text-center mt-6">
+                <h2 className="text-xl font-semibold">Exercise Complete</h2>
+                <p className="text-gray-600 mt-1">Great job! You finished all sets.</p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <CircularProgress
+                value={timer.percentRemaining}
+                size={256}
+                strokeWidth={10}
+                className={`mb-4 ${isRestingNow ? 'text-green-500' : 'text-blue-500'}`}
+              >
+                <span className="text-6xl font-bold">
+                  {formatTime(timer.timeRemaining)}
+                </span>
+                <span className="text-gray-600 mt-2">
+                  {isRestingNow ? 'REST PERIOD' : 'EXERCISE PERIOD'}
+                </span>
+              </CircularProgress>
+              
+              <div className="text-center mt-4">
+                <h2 className="text-xl font-semibold">{getActionText()}</h2>
+                <p className="text-gray-600 mt-1">{getActionSubtext()}</p>
+              </div>
+            </>
+          )}
         </div>
 
         {/* Exercise Progress */}
@@ -238,61 +261,74 @@ export default function Timer() {
         </div>
 
         {/* Timer Controls */}
-        <div className="w-full flex space-x-4 mt-8">
-          {timer.state === 'running' ? (
+        {isCompleted || timer.state === 'completed' ? (
+          /* Show "Next Exercise" button when exercise is completed */
+          <div className="w-full mt-4">
             <Button 
-              variant="outline" 
-              className="flex-1 py-4 h-auto"
+              className="w-full py-6 h-auto bg-green-600 hover:bg-green-700 text-white text-lg"
               onClick={() => {
-                timer.pause();
+                // Go to the next exercise if available
+                // For now, just go back to exercise list
+                setLocation('/');
               }}
             >
-              Pause
+              Next Exercise
             </Button>
-          ) : (
-            <Button 
-              variant="outline" 
-              className="flex-1 py-4 h-auto"
-              onClick={() => {
-                timer.resume();
-              }}
-            >
-              Resume
-            </Button>
-          )}
-          
-          <Button 
-            className={`flex-1 py-4 h-auto ${isRestingNow ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
-            onClick={() => {
-              timer.skip();
-            }}
-          >
-            {isRestingNow ? 'Skip Rest' : (exercise.type === 'hold' ? 'Complete Hold' : 'Complete Reps')}
-          </Button>
-        </div>
-        
-        {/* Next Set Button */}
-        <div className="w-full mt-4">
-          <Button 
-            variant="outline"
-            className="w-full py-4 h-auto border-dashed text-gray-600"
-            onClick={() => {
-              // Instead of relying on timer.currentSet, update our local state
-              if (displaySet < timer.totalSets) {
-                setDisplaySet(displaySet + 1);
-              } else if (exercise.isPaired && displaySide === 'left') {
-                setDisplaySide('right');
-                setDisplaySet(1);
-              }
-              timer.nextSet();
-            }}
-          >
-            {displaySet < timer.totalSets ? 
-              `Skip to Set ${displaySet + 1}/${timer.totalSets}` : 
-              (exercise.isPaired && displaySide === 'left' ? 
-                'Switch to Right Side' : 'Complete All Sets')}
-          </Button>
-        </div>
+          </div>
+        ) : (
+          /* Show normal exercise controls when not completed */
+          <>
+            <div className="w-full flex space-x-4 mt-8">
+              {timer.state === 'running' ? (
+                <Button 
+                  variant="outline" 
+                  className="flex-1 py-4 h-auto"
+                  onClick={() => {
+                    timer.pause();
+                  }}
+                >
+                  Pause
+                </Button>
+              ) : (
+                <Button 
+                  variant="outline" 
+                  className="flex-1 py-4 h-auto"
+                  onClick={() => {
+                    timer.resume();
+                  }}
+                >
+                  Resume
+                </Button>
+              )}
+              
+              <Button 
+                className="flex-1 py-4 h-auto bg-red-600 hover:bg-red-700 text-white"
+                onClick={() => {
+                  // Complete all sets and finish the exercise
+                  handleExerciseComplete();
+                  timer.reset();
+                  setIsCompleted(true);
+                }}
+              >
+                Finish
+              </Button>
+            </div>
+            
+            {/* Show Skip buttons while exercise or rest is ongoing */}
+            {timer.state === 'running' && (
+              <div className="w-full mt-4">
+                <Button 
+                  className={`w-full py-4 h-auto ${isRestingNow ? 'bg-green-600 hover:bg-green-700 text-white' : 'bg-blue-600 hover:bg-blue-700 text-white'}`}
+                  onClick={() => {
+                    timer.skip();
+                  }}
+                >
+                  {isRestingNow ? 'Skip Rest' : (exercise.type === 'hold' ? 'Complete Hold' : 'Complete Reps')}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
       </div>
     </div>
   );
