@@ -24,14 +24,14 @@ export function ProgressSummary({ className }: ProgressSummaryProps) {
   const progressPercentage = calculateProgress(completedCount, totalCount);
 
   return (
-    <div className={`bg-white rounded-xl shadow-sm mb-6 p-4 ${className}`}>
+    <div className={`bg-white dark:bg-slate-800 rounded-xl shadow-sm mb-6 p-4 ${className}`}>
       <div className="flex items-center justify-between mb-2">
-        <h2 className="text-lg font-semibold">Progress</h2>
-        <Badge variant="outline" className="text-gray-500">
+        <h2 className="text-lg font-semibold text-foreground dark:text-white">Progress</h2>
+        <Badge variant="outline" className="text-gray-500 dark:text-gray-300 dark:border-gray-600">
           {isLoading ? 'Loading...' : `${completedCount}/${totalCount} exercises`}
         </Badge>
       </div>
-      <div className="w-full bg-gray-100 rounded-full h-3">
+      <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-3">
         <div
           className="bg-primary h-3 rounded-full transition-all duration-500"
           style={{ width: `${progressPercentage}%` }}

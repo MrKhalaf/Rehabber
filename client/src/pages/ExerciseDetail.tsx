@@ -57,20 +57,20 @@ export default function ExerciseDetail() {
   }
 
   return (
-    <div className="h-screen flex flex-col bg-light text-dark">
+    <div className="h-screen flex flex-col bg-background dark:bg-slate-900 text-foreground dark:text-white">
       <div className="flex-1 overflow-hidden" style={{ paddingBottom: '70px' }}>
         <div className="h-full overflow-y-auto">
           {/* Header */}
-          <div className="bg-primary text-white p-4 pt-12 relative">
+          <div className="bg-primary text-primary-foreground p-4 pt-12 relative">
             <button 
-              className="absolute top-12 left-4 p-1 rounded-full bg-white/20"
+              className="absolute top-12 left-4 p-1 rounded-full bg-white/20 hover:bg-white/30"
               onClick={handleBack}
             >
               <ChevronLeft className="h-6 w-6" />
             </button>
             <div className="text-center mt-2">
               <h1 className="text-xl font-bold">{exercise.name}</h1>
-              <p className="text-white/80 mt-1">{exercise.category}</p>
+              <p className="text-primary-foreground/90 mt-1">{exercise.category}</p>
               
               {/* Completion status badge */}
               <div className="mt-3">
@@ -96,8 +96,8 @@ export default function ExerciseDetail() {
           <div className="px-4 py-6">
             {/* Instructions */}
             <div className="mb-8">
-              <h2 className="text-lg font-semibold mb-3">Instructions</h2>
-              <ol className="list-decimal pl-4 space-y-3 text-gray-700">
+              <h2 className="text-lg font-semibold mb-3 text-foreground dark:text-white">Instructions</h2>
+              <ol className="list-decimal pl-4 space-y-3 text-gray-700 dark:text-gray-300">
                 {exercise.instructions?.map((instruction, index) => (
                   <li key={index}>{instruction}</li>
                 )) || (
@@ -108,32 +108,32 @@ export default function ExerciseDetail() {
 
             {/* Parameters */}
             <div className="mb-8">
-              <h2 className="text-lg font-semibold mb-3">Parameters</h2>
-              <div className="bg-white rounded-xl shadow-sm p-4">
+              <h2 className="text-lg font-semibold mb-3 text-foreground dark:text-white">Parameters</h2>
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm p-4">
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div>
-                    <p className="text-gray-500 text-sm">Sets</p>
-                    <p className="text-2xl font-semibold">{exercise.sets}</p>
+                    <p className="text-gray-500 dark:text-gray-300 text-sm">Sets</p>
+                    <p className="text-2xl font-semibold text-foreground dark:text-white">{exercise.sets}</p>
                   </div>
                   {exercise.type === 'hold' ? (
                     <div>
-                      <p className="text-gray-500 text-sm">Hold</p>
-                      <p className="text-2xl font-semibold">{formatDuration(exercise.holdDuration || 0)}</p>
+                      <p className="text-gray-500 dark:text-gray-300 text-sm">Hold</p>
+                      <p className="text-2xl font-semibold text-foreground dark:text-white">{formatDuration(exercise.holdDuration || 0)}</p>
                     </div>
                   ) : (
                     <div>
-                      <p className="text-gray-500 text-sm">Reps</p>
-                      <p className="text-2xl font-semibold">{exercise.reps || 0}</p>
+                      <p className="text-gray-500 dark:text-gray-300 text-sm">Reps</p>
+                      <p className="text-2xl font-semibold text-foreground dark:text-white">{exercise.reps || 0}</p>
                     </div>
                   )}
                   <div>
-                    <p className="text-gray-500 text-sm">Rest</p>
-                    <p className="text-2xl font-semibold">{formatDuration(exercise.restTime || 0)}</p>
+                    <p className="text-gray-500 dark:text-gray-300 text-sm">Rest</p>
+                    <p className="text-2xl font-semibold text-foreground dark:text-white">{formatDuration(exercise.restTime || 0)}</p>
                   </div>
                   {exercise.isPaired && (
                     <div>
-                      <p className="text-gray-500 text-sm">Sides</p>
-                      <p className="text-2xl font-semibold">Both</p>
+                      <p className="text-gray-500 dark:text-gray-300 text-sm">Sides</p>
+                      <p className="text-2xl font-semibold text-foreground dark:text-white">Both</p>
                     </div>
                   )}
                 </div>
@@ -142,11 +142,11 @@ export default function ExerciseDetail() {
 
             {/* Video Reference (placeholder) */}
             <div className="mb-8">
-              <h2 className="text-lg font-semibold mb-3">Reference Video</h2>
-              <div className="bg-gray-200 rounded-xl aspect-video flex items-center justify-center">
-                <Play className="h-16 w-16 text-gray-400" />
+              <h2 className="text-lg font-semibold mb-3 text-foreground dark:text-white">Reference Video</h2>
+              <div className="bg-gray-200 dark:bg-slate-700 rounded-xl aspect-video flex items-center justify-center">
+                <Play className="h-16 w-16 text-gray-400 dark:text-gray-500" />
               </div>
-              <p className="text-sm text-gray-500 mt-2 text-center">Video provided by your physical therapist</p>
+              <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center">Video provided by your physical therapist</p>
             </div>
 
             {/* Action Buttons */}
