@@ -345,15 +345,73 @@ export function useSettingsTimer({
     clearTimer();
     
     if (currentSet < sets) {
+      // Call onSetComplete with the current set number before incrementing
+      if (onSetComplete) onSetComplete(currentSet);
+      
+      // Move to the next set
       setCurrentSet(prev => prev + 1);
       setIsResting(false);
       setTimeRemaining(duration);
-      if (onSetComplete) onSetComplete(currentSet);
+      
+      // Restart the timer for the next set
+      startTimeRef.current = Date.now();
+      setState('running');
+      
+      timerRef.current = window.setInterval(() => {
+        const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+        const remainingTime = Math.max(0, duration - elapsedSeconds);
+        
+        setTimeRemaining(remainingTime);
+        
+        if (remainingTime <= 0) {
+          clearTimer();
+          
+          // If we have rest periods, transition to rest
+          if (effectiveRestDuration > 0) {
+            setIsResting(true);
+            setTimeRemaining(effectiveRestDuration);
+            startTimeRef.current = Date.now();
+            
+            // Start the rest timer
+            timerRef.current = window.setInterval(() => {
+              const restElapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+              const restRemaining = Math.max(0, effectiveRestDuration - restElapsed);
+              
+              setTimeRemaining(restRemaining);
+              
+              if (restRemaining <= 0) {
+                clearTimer();
+                
+                // After rest period, determine if we move to next set or complete
+                if (currentSet + 1 < sets) {
+                  // Auto-move to next set
+                  nextSet();
+                } else {
+                  // Exercise complete
+                  setState('completed');
+                  if (onComplete) onComplete();
+                }
+              }
+            }, 100);
+          } else {
+            // No rest period, check if there are more sets
+            if (currentSet + 1 < sets) {
+              // Auto-move to next set
+              nextSet();
+            } else {
+              // Exercise complete
+              setState('completed');
+              if (onComplete) onComplete();
+            }
+          }
+        }
+      }, 100);
     } else {
+      // All sets are completed
       setState('completed');
       if (onComplete) onComplete();
     }
-  }, [clearTimer, currentSet, duration, onComplete, onSetComplete, sets]);
+  }, [clearTimer, currentSet, duration, effectiveRestDuration, onComplete, onSetComplete, sets]);
   
   // Clean up on unmount
   useEffect(() => {

@@ -41,6 +41,7 @@ export default function Timer() {
       const progressData = {
         exerciseId: exercise.id,
         completedSets: exercise.sets,
+        completedAt: now,
         notes: ''
       };
       
