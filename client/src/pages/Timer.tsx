@@ -37,13 +37,16 @@ export default function Timer() {
       // Get current exercise day's start time (4 AM)
       const now = new Date();
       
-      // Record that all sets were completed 
-      recordProgress.mutate({
+      // Record that all sets were completed
+      const progressData = {
         exerciseId: exercise.id,
         completedSets: exercise.sets,
-        completedAt: now,
         notes: ''
-      }, {
+      };
+      
+      console.log('Recording progress:', progressData);
+      
+      recordProgress.mutate(progressData, {
         onSuccess: () => {
           // Update our completed state
           setIsCompleted(true);
