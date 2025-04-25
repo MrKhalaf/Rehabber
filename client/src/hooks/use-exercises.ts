@@ -14,22 +14,60 @@ export function useExercises() {
  * Custom hook to load exercises with their completion status
  */
 export function useExercisesWithProgress() {
-  // Just fetch regular exercises for now
   const { data: exercises, isLoading: isExercisesLoading } = useExercises();
   
-  // Add completed=false to all exercises
-  const exercisesWithCompletion = useMemo(() => {
-    if (!exercises) return [];
-    
-    return exercises.map(exercise => ({
-      ...exercise,
-      completed: false
-    }));
+  // Create a series of queries for each exercise's progress
+  const exerciseIds = useMemo(() => {
+    return exercises?.map(ex => ex.id) || [];
   }, [exercises]);
   
+  // Get progress data for each exercise
+  const progressQueries = useQuery({
+    queryKey: ['/api/exercises', 'progress'],
+    enabled: exerciseIds.length > 0 && !isExercisesLoading,
+    queryFn: async () => {
+      // Make parallel requests for all exercises' progress
+      const progressData: Record<number, ExerciseProgress[]> = {};
+      
+      // Only fetch if we have exercises
+      if (exerciseIds.length > 0) {
+        const promises = exerciseIds.map(async (id) => {
+          try {
+            const response = await fetch(`/api/progress/${id}`);
+            const data = await response.json();
+            progressData[id] = data;
+          } catch (error) {
+            console.error(`Error fetching progress for exercise ${id}:`, error);
+            progressData[id] = [];
+          }
+        });
+        
+        await Promise.all(promises);
+      }
+      
+      return progressData;
+    }
+  });
+  
+  // Combine exercises with their status based on progress
+  const exercisesWithStatus = useMemo(() => {
+    if (!exercises) return [];
+    
+    return exercises.map(exercise => {
+      const progress = progressQueries.data?.[exercise.id] || [];
+      const status = determineExerciseStatus(exercise, progress);
+      
+      return {
+        ...exercise,
+        status,
+        completed: status === 'completed'
+      };
+    });
+  }, [exercises, progressQueries.data]);
+  
   return {
-    data: exercisesWithCompletion,
-    isLoading: isExercisesLoading
+    data: exercisesWithStatus,
+    isLoading: isExercisesLoading || progressQueries.isLoading
   };
 }
 
@@ -105,7 +143,15 @@ export function useRecordExerciseProgress() {
       return response.json();
     },
     onSuccess: (_, variables) => {
+      // Invalidate specific exercise progress
       queryClient.invalidateQueries({ queryKey: [`/api/progress/${variables.exerciseId}`] });
+      
+      // Invalidate the combined progress data used in useExercisesWithProgress
+      queryClient.invalidateQueries({ queryKey: ['/api/exercises', 'progress'] });
+      
+      // Also invalidate exercises lists - this forces UI to update
+      queryClient.invalidateQueries({ queryKey: ['/api/exercises'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/exercises/category'] });
     },
   });
 }
