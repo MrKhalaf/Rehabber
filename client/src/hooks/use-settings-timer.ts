@@ -60,6 +60,22 @@ export function useSettingsTimer({
   const startTimeRef = useRef<number>(0);
   const pausedTimeRef = useRef<number>(0);
   
+  // For tracking state when in async callbacks
+  const stateRef = useRef({
+    currentSet,
+    currentSide,
+    isResting
+  });
+  
+  // Update ref when state changes
+  useEffect(() => {
+    stateRef.current = {
+      currentSet,
+      currentSide,
+      isResting
+    };
+  }, [currentSet, currentSide, isResting]);
+  
   // Derived values
   const percentRemaining = (timeRemaining / (isResting ? effectiveRestDuration : duration)) * 100;
   
@@ -71,17 +87,129 @@ export function useSettingsTimer({
     }
   }, []);
   
-  // Timer functions
-  const start = useCallback(() => {
+  // Transition to rest mode
+  const transitionToRest = useCallback(() => {
     clearTimer();
-    
-    setTimeRemaining(duration);
-    setCurrentSet(1);
-    setCurrentSide(sides ? 'left' : null);
-    setIsResting(false);
+    setIsResting(true);
+    setTimeRemaining(effectiveRestDuration);
+    startTimeRef.current = Date.now();
     setState('running');
     
+    timerRef.current = window.setInterval(() => {
+      const restElapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+      const restRemaining = Math.max(0, effectiveRestDuration - restElapsed);
+      
+      setTimeRemaining(restRemaining);
+      
+      if (restRemaining <= 0) {
+        clearTimer();
+        
+        // Get latest state from ref
+        const { currentSet: latestSet, currentSide: latestSide } = stateRef.current;
+        
+        // Handle set progression after rest period
+        if (sides) {
+          if (effectiveSideStrategy === 'alternate') {
+            // Alternate sides within the set
+            if (latestSide === 'left') {
+              // Switch to right side for the current set
+              setCurrentSide('right');
+              setIsResting(false);
+              setTimeRemaining(duration);
+              if (onSideChange) onSideChange();
+              
+              // Start exercise timer for right side
+              startExercisePhase();
+            } else {
+              // Completed both sides, go to next set or finish
+              if (latestSet < sets) {
+                const nextSetNum = latestSet + 1;
+                setCurrentSet(nextSetNum);
+                setCurrentSide('left');
+                setIsResting(false);
+                setTimeRemaining(duration);
+                if (onSetComplete) onSetComplete(latestSet);
+                
+                // Start exercise timer for next set
+                startExercisePhase();
+              } else {
+                // All sets complete
+                setState('completed');
+                if (onComplete) onComplete();
+              }
+            }
+          } else {
+            // Sequential - do all sets on one side, then switch
+            if (latestSide === 'left') {
+              if (latestSet < sets) {
+                // Next set on left side
+                const nextSetNum = latestSet + 1;
+                setCurrentSet(nextSetNum);
+                setIsResting(false);
+                setTimeRemaining(duration);
+                if (onSetComplete) onSetComplete(latestSet);
+                
+                // Start exercise timer for next set on left side
+                startExercisePhase();
+              } else {
+                // All left sets done, switch to right
+                setCurrentSet(1);
+                setCurrentSide('right');
+                setIsResting(false);
+                setTimeRemaining(duration);
+                if (onSideChange) onSideChange();
+                
+                // Start exercise timer for right side
+                startExercisePhase();
+              }
+            } else {
+              // Right side
+              if (latestSet < sets) {
+                // Next set on right side
+                const nextSetNum = latestSet + 1;
+                setCurrentSet(nextSetNum);
+                setIsResting(false);
+                setTimeRemaining(duration);
+                if (onSetComplete) onSetComplete(latestSet);
+                
+                // Start exercise timer for next set on right side
+                startExercisePhase();
+              } else {
+                // All sets complete
+                setState('completed');
+                if (onComplete) onComplete();
+              }
+            }
+          }
+        } else {
+          // No sides, just sets
+          if (latestSet < sets) {
+            // Move to next set
+            const nextSetNum = latestSet + 1;
+            setCurrentSet(nextSetNum);
+            setIsResting(false);
+            setTimeRemaining(duration);
+            if (onSetComplete) onSetComplete(latestSet);
+            
+            // Start exercise timer for next set
+            startExercisePhase();
+          } else {
+            // All sets complete
+            setState('completed');
+            if (onComplete) onComplete();
+          }
+        }
+      }
+    }, 100);
+  }, [clearTimer, duration, effectiveRestDuration, effectiveSideStrategy, onComplete, onSetComplete, onSideChange, sets, sides]);
+  
+  // Start timer for exercise phase
+  const startExercisePhase = useCallback(() => {
+    clearTimer();
+    setIsResting(false);
+    setTimeRemaining(duration);
     startTimeRef.current = Date.now();
+    setState('running');
     
     timerRef.current = window.setInterval(() => {
       const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
@@ -92,114 +220,94 @@ export function useSettingsTimer({
       if (remainingTime <= 0) {
         clearTimer();
         
-        // If we have rest periods, transition to rest
+        // Transition to rest period
         if (effectiveRestDuration > 0) {
-          setIsResting(true);
-          setTimeRemaining(effectiveRestDuration);
-          startTimeRef.current = Date.now();
+          transitionToRest();
+        } else {
+          // No rest period, go directly to next set/side using same logic as rest completion
+          // Get latest state from ref
+          const { currentSet: latestSet, currentSide: latestSide } = stateRef.current;
           
-          // Start the rest timer
-          timerRef.current = window.setInterval(() => {
-            const restElapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-            const restRemaining = Math.max(0, effectiveRestDuration - restElapsed);
-            
-            setTimeRemaining(restRemaining);
-            
-            if (restRemaining <= 0) {
-              clearTimer();
-              
-              // Handle set/side progression
-              if (sides) {
-                if (effectiveSideStrategy === 'alternate') {
-                  // Alternate sides within the set
-                  if (currentSide === 'left') {
-                    // Switch to right side for current set
-                    setCurrentSide('right');
-                    setIsResting(false);
-                    setTimeRemaining(duration);
-                    if (onSideChange) onSideChange();
-                    start();
-                  } else {
-                    // Completed both sides, go to next set or finish
-                    if (currentSet < sets) {
-                      // Next set
-                      setCurrentSet(prev => prev + 1);
-                      setCurrentSide('left');
-                      setIsResting(false);
-                      setTimeRemaining(duration);
-                      if (onSetComplete) onSetComplete(currentSet);
-                      start();
-                    } else {
-                      // All sets complete
-                      setState('completed');
-                      if (onComplete) onComplete();
-                    }
-                  }
+          if (sides) {
+            // Handle sides logic
+            if (effectiveSideStrategy === 'alternate') {
+              if (latestSide === 'left') {
+                setCurrentSide('right');
+                setTimeRemaining(duration);
+                if (onSideChange) onSideChange();
+                startExercisePhase();
+              } else {
+                if (latestSet < sets) {
+                  const nextSetNum = latestSet + 1;
+                  setCurrentSet(nextSetNum);
+                  setCurrentSide('left');
+                  setTimeRemaining(duration);
+                  if (onSetComplete) onSetComplete(latestSet);
+                  startExercisePhase();
                 } else {
-                  // Sequential - do all sets on one side, then switch
-                  if (currentSide === 'left') {
-                    if (currentSet < sets) {
-                      // Next set on left side
-                      setCurrentSet(prev => prev + 1);
-                      setIsResting(false);
-                      setTimeRemaining(duration);
-                      if (onSetComplete) onSetComplete(currentSet);
-                      start();
-                    } else {
-                      // All left sets done, switch to right
-                      setCurrentSet(1);
-                      setCurrentSide('right');
-                      setIsResting(false);
-                      setTimeRemaining(duration);
-                      if (onSideChange) onSideChange();
-                      start();
-                    }
-                  } else {
-                    // Right side
-                    if (currentSet < sets) {
-                      // Next set on right side
-                      setCurrentSet(prev => prev + 1);
-                      setIsResting(false);
-                      setTimeRemaining(duration);
-                      if (onSetComplete) onSetComplete(currentSet);
-                      start();
-                    } else {
-                      // All sets complete
-                      setState('completed');
-                      if (onComplete) onComplete();
-                    }
-                  }
+                  setState('completed');
+                  if (onComplete) onComplete();
+                }
+              }
+            } else {
+              // Sequential strategy
+              if (latestSide === 'left') {
+                if (latestSet < sets) {
+                  const nextSetNum = latestSet + 1;
+                  setCurrentSet(nextSetNum);
+                  setTimeRemaining(duration);
+                  if (onSetComplete) onSetComplete(latestSet);
+                  startExercisePhase();
+                } else {
+                  setCurrentSet(1);
+                  setCurrentSide('right');
+                  setTimeRemaining(duration);
+                  if (onSideChange) onSideChange();
+                  startExercisePhase();
                 }
               } else {
-                // No sides, just sets
-                if (currentSet < sets) {
-                  // Next set
-                  setCurrentSet(prev => prev + 1);
-                  setIsResting(false);
+                if (latestSet < sets) {
+                  const nextSetNum = latestSet + 1;
+                  setCurrentSet(nextSetNum);
                   setTimeRemaining(duration);
-                  if (onSetComplete) onSetComplete(currentSet);
-                  start();
+                  if (onSetComplete) onSetComplete(latestSet);
+                  startExercisePhase();
                 } else {
-                  // All sets complete
                   setState('completed');
                   if (onComplete) onComplete();
                 }
               }
             }
-          }, 100);
-        } else {
-          // No rest period, go directly to next set/side
-          // (Logic would be similar to above but without the rest phase)
-          setState('completed');
-          if (onComplete) onComplete();
+          } else {
+            // No sides, just sets
+            if (latestSet < sets) {
+              const nextSetNum = latestSet + 1;
+              setCurrentSet(nextSetNum);
+              setTimeRemaining(duration);
+              if (onSetComplete) onSetComplete(latestSet);
+              startExercisePhase();
+            } else {
+              setState('completed');
+              if (onComplete) onComplete();
+            }
+          }
         }
       }
     }, 100);
-  }, [
-    clearTimer, currentSet, currentSide, duration, 
-    effectiveRestDuration, effectiveSideStrategy, 
-    onComplete, onSetComplete, onSideChange, sets, sides
-  ]);
+  }, [clearTimer, duration, effectiveRestDuration, effectiveSideStrategy, onComplete, onSetComplete, onSideChange, sets, sides, transitionToRest]);
+  
+  // Main start function
+  const start = useCallback(() => {
+    clearTimer();
+    
+    setTimeRemaining(duration);
+    setCurrentSet(1);
+    setCurrentSide(sides ? 'left' : null);
+    setIsResting(false);
+    setState('running');
+    
+    startExercisePhase();
+  }, [clearTimer, duration, sides, startExercisePhase]);
   
   // Pause the timer
   const pause = useCallback(() => {
@@ -219,20 +327,38 @@ export function useSettingsTimer({
       // Start from where we left off
       startTimeRef.current = Date.now() - ((isResting ? effectiveRestDuration : duration) - pausedTime) * 1000;
       
-      timerRef.current = window.setInterval(() => {
-        const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        const currentDuration = isResting ? effectiveRestDuration : duration;
-        const newTime = Math.max(0, currentDuration - elapsedSeconds);
-        
-        setTimeRemaining(newTime);
-        
-        if (newTime <= 0) {
-          clearTimer();
-          // Would continue with the same progression logic as in start()
-        }
-      }, 100);
+      if (isResting) {
+        timerRef.current = window.setInterval(() => {
+          const restElapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
+          const restRemaining = Math.max(0, effectiveRestDuration - restElapsed);
+          
+          setTimeRemaining(restRemaining);
+          
+          if (restRemaining <= 0) {
+            clearTimer();
+            transitionToRest(); // This will handle end-of-rest logic
+          }
+        }, 100);
+      } else {
+        timerRef.current = window.setInterval(() => {
+          const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
+          const remainingTime = Math.max(0, duration - elapsedSeconds);
+          
+          setTimeRemaining(remainingTime);
+          
+          if (remainingTime <= 0) {
+            clearTimer();
+            
+            if (effectiveRestDuration > 0) {
+              transitionToRest();
+            } else {
+              startExercisePhase(); // Handle no-rest case
+            }
+          }
+        }, 100);
+      }
     }
-  }, [clearTimer, duration, effectiveRestDuration, isResting, state]);
+  }, [clearTimer, duration, effectiveRestDuration, isResting, startExercisePhase, state, transitionToRest]);
   
   // Reset the timer
   const reset = useCallback(() => {
@@ -249,169 +375,98 @@ export function useSettingsTimer({
     clearTimer();
     
     if (isResting) {
-      // Skip rest and go to next exercise/set
-      setIsResting(false);
-      setTimeRemaining(duration);
+      // Skip rest
+      const { currentSet: latestSet, currentSide: latestSide } = stateRef.current;
       
-      // Handle set/side progression like we do at the end of rest
       if (sides) {
         if (effectiveSideStrategy === 'alternate') {
-          // Alternate sides within the set
-          if (currentSide === 'left') {
-            // Switch to right side for current set
+          if (latestSide === 'left') {
+            // Start right side for this set
             setCurrentSide('right');
+            setIsResting(false);
             if (onSideChange) onSideChange();
+            startExercisePhase();
           } else {
-            // Completed both sides, go to next set or finish
-            if (currentSet < sets) {
-              // Next set
-              setCurrentSet(prev => prev + 1);
+            // Right side complete, check if more sets
+            if (latestSet < sets) {
+              setCurrentSet(latestSet + 1);
               setCurrentSide('left');
-              if (onSetComplete) onSetComplete(currentSet);
+              setIsResting(false);
+              if (onSetComplete) onSetComplete(latestSet);
+              startExercisePhase();
             } else {
-              // All sets complete
               setState('completed');
               if (onComplete) onComplete();
-              return; // Exit early to prevent starting a new timer
             }
           }
         } else {
-          // Sequential - do all sets on one side, then switch
-          if (currentSide === 'left') {
-            if (currentSet < sets) {
-              // Next set on left side
-              setCurrentSet(prev => prev + 1);
-              if (onSetComplete) onSetComplete(currentSet);
+          // Sequential strategy
+          if (latestSide === 'left') {
+            if (latestSet < sets) {
+              setCurrentSet(latestSet + 1);
+              setIsResting(false);
+              if (onSetComplete) onSetComplete(latestSet);
+              startExercisePhase();
             } else {
-              // All left sets done, switch to right
               setCurrentSet(1);
               setCurrentSide('right');
+              setIsResting(false);
               if (onSideChange) onSideChange();
+              startExercisePhase();
             }
           } else {
-            // Right side
-            if (currentSet < sets) {
-              // Next set on right side
-              setCurrentSet(prev => prev + 1);
-              if (onSetComplete) onSetComplete(currentSet);
+            if (latestSet < sets) {
+              setCurrentSet(latestSet + 1);
+              setIsResting(false);
+              if (onSetComplete) onSetComplete(latestSet);
+              startExercisePhase();
             } else {
-              // All sets complete
               setState('completed');
               if (onComplete) onComplete();
-              return; // Exit early to prevent starting a new timer
             }
           }
         }
       } else {
-        // No sides, just sets
-        if (currentSet < sets) {
-          // Next set
-          setCurrentSet(prev => prev + 1);
-          if (onSetComplete) onSetComplete(currentSet);
+        // No sides, just check if more sets
+        if (latestSet < sets) {
+          setCurrentSet(latestSet + 1);
+          setIsResting(false);
+          if (onSetComplete) onSetComplete(latestSet);
+          startExercisePhase();
         } else {
-          // All sets complete
           setState('completed');
           if (onComplete) onComplete();
-          return; // Exit early to prevent starting a new timer
         }
       }
     } else {
-      // Skip exercise and go to rest
-      setIsResting(true);
-      setTimeRemaining(effectiveRestDuration);
+      // Skip exercise, go to rest
+      transitionToRest();
     }
-    
-    startTimeRef.current = Date.now();
-    setState('running');
-    
-    // Start the appropriate timer based on current state
-    timerRef.current = window.setInterval(() => {
-      const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      const currentDuration = isResting ? effectiveRestDuration : duration;
-      const remainingTime = Math.max(0, currentDuration - elapsedSeconds);
-      
-      setTimeRemaining(remainingTime);
-      
-      if (remainingTime <= 0) {
-        clearTimer();
-        // We'll handle this on the next call to skip or in regular timer progression
-      }
-    }, 100);
-  }, [clearTimer, currentSet, currentSide, duration, effectiveRestDuration, 
-      effectiveSideStrategy, isResting, onComplete, onSetComplete, onSideChange, sets, sides]);
+  }, [effectiveSideStrategy, isResting, onComplete, onSetComplete, onSideChange, sets, sides, startExercisePhase, transitionToRest]);
   
   // Force move to next set
   const nextSet = useCallback(() => {
     clearTimer();
     
-    if (currentSet < sets) {
+    const { currentSet: latestSet } = stateRef.current;
+    
+    if (latestSet < sets) {
       // Call onSetComplete with the current set number before incrementing
-      if (onSetComplete) onSetComplete(currentSet);
+      if (onSetComplete) onSetComplete(latestSet);
       
       // Move to the next set
-      setCurrentSet(prev => prev + 1);
+      const nextSetNum = latestSet + 1;
+      setCurrentSet(nextSetNum);
       setIsResting(false);
-      setTimeRemaining(duration);
       
-      // Restart the timer for the next set
-      startTimeRef.current = Date.now();
-      setState('running');
-      
-      timerRef.current = window.setInterval(() => {
-        const elapsedSeconds = Math.floor((Date.now() - startTimeRef.current) / 1000);
-        const remainingTime = Math.max(0, duration - elapsedSeconds);
-        
-        setTimeRemaining(remainingTime);
-        
-        if (remainingTime <= 0) {
-          clearTimer();
-          
-          // If we have rest periods, transition to rest
-          if (effectiveRestDuration > 0) {
-            setIsResting(true);
-            setTimeRemaining(effectiveRestDuration);
-            startTimeRef.current = Date.now();
-            
-            // Start the rest timer
-            timerRef.current = window.setInterval(() => {
-              const restElapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-              const restRemaining = Math.max(0, effectiveRestDuration - restElapsed);
-              
-              setTimeRemaining(restRemaining);
-              
-              if (restRemaining <= 0) {
-                clearTimer();
-                
-                // After rest period, determine if we move to next set or complete
-                if (currentSet < sets) {
-                  // Auto-move to next set
-                  nextSet();
-                } else {
-                  // Exercise complete
-                  setState('completed');
-                  if (onComplete) onComplete();
-                }
-              }
-            }, 100);
-          } else {
-            // No rest period, check if there are more sets
-            if (currentSet < sets) {
-              // Auto-move to next set
-              nextSet();
-            } else {
-              // Exercise complete
-              setState('completed');
-              if (onComplete) onComplete();
-            }
-          }
-        }
-      }, 100);
+      // Start next set
+      startExercisePhase();
     } else {
       // All sets are completed
       setState('completed');
       if (onComplete) onComplete();
     }
-  }, [clearTimer, currentSet, duration, effectiveRestDuration, onComplete, onSetComplete, sets]);
+  }, [clearTimer, onComplete, onSetComplete, sets, startExercisePhase]);
   
   // Clean up on unmount
   useEffect(() => {
