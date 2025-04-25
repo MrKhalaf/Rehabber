@@ -383,7 +383,7 @@ export function useSettingsTimer({
                 clearTimer();
                 
                 // After rest period, determine if we move to next set or complete
-                if (currentSet + 1 < sets) {
+                if (currentSet < sets) {
                   // Auto-move to next set
                   nextSet();
                 } else {
@@ -395,7 +395,7 @@ export function useSettingsTimer({
             }, 100);
           } else {
             // No rest period, check if there are more sets
-            if (currentSet + 1 < sets) {
+            if (currentSet < sets) {
               // Auto-move to next set
               nextSet();
             } else {

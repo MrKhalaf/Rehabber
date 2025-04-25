@@ -61,14 +61,12 @@ export const exerciseProgressInsertSchema = createInsertSchema(exerciseProgress)
   .omit({
     id: true
   })
-  .transform((data) => {
-    // Convert string dates to Date objects
-    return {
-      ...data,
-      completedAt: data.completedAt instanceof Date 
-        ? data.completedAt 
-        : new Date(data.completedAt || new Date())
-    };
+  .extend({
+    // Allow string dates which will be converted to Date objects
+    completedAt: z.string().or(z.date()).optional().transform(val => {
+      if (!val) return new Date();
+      return val instanceof Date ? val : new Date(val);
+    })
   });
 
 // User-defined custom programs (collection of exercises)
